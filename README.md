@@ -26,4 +26,5 @@ version specified by BOOST_VERSION2. You may also manually place a matching
 tarball in the current directory and the script will use that.
 
 usage: ./boost.sh [{-ios,-tvos,-osx} ...] options
+
 Run ./boost.sh -h for descriptions of all options.
