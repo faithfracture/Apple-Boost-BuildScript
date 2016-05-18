@@ -6,7 +6,7 @@
   building for ios, the osx and tvos output & build directories won't be
   removed).
 * Quoted all the path strings (you know, in case you like putting spaces in
-  your paths).
+  your paths). (Thanks to JanX2 for this)
 * Build output is redirected to a log file, rather than stdout / stderr. This
   log file will be located in the target build output directory.
 * No longer backup / restore user-config.jam. (No need, since it's being
