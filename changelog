@@ -1,0 +1,74 @@
+-- 2016-05-18 --
+* Added tvOS support
+* Moved build output to a build directory. All output will now be located at:
+	{pwd}/build/boost/{boost_version}/{build_target}/
+* Only the currently building target will be cleaned (meaning if you are
+  building for ios, the osx and tvos output & build directories won't be
+  removed).
+* Quoted all the path strings (you know, in case you like putting spaces in
+  your paths).
+* Build output is redirected to a log file, rather than stdout / stderr. This
+  log file will be located in the target build output directory.
+* No longer backup / restore user-config.jam. (No need, since it's being
+  written each time the script is run for each target anyways).
+
+-- 2015-09-22 UPDATE --
+Added command line args!
+You can now specify if you want to build just for iOS or OS X, along with some
+other things.
+Run boost.sh -h for more info.
+Let me know if there are any other parameters that you think would be useful.
+
+-- 2015-09-18 UPDATE --
+Fixed script for iOS Simulator (Thanks @XMitja!)
+• There is now a MIN_IOS_VERSION variable. Make sure you set this
+appropriately.
+
+cleanup function now actually removes all build artifacts
+
+Fixed updateBoost function to move the existing user-config.jam instead 
+of copying it. Copying it resulted in writing duplicate entries each time 
+the script was run.
+
+NOTE: Currently does not build with bitcode. I will figure that one out when I
+get time. 
+I'm at the cusp of a product release though, so it might be a little while. 
+Just disable bitcode for your project for the time being.
+
+-- 2015-08-26 UPDATE --
+The resulting libraries from this script are currently not working for
+the iOS simulator under Xcode 7 as of beta 6. I have an issue opened
+with Apple about this. It does still work for physical devices though.
+As soon as I figure out what the problem is, I will post an update.
+
+-- 2014-12-29 UPDATE --
+
+Updated to work with Boost 1.56, 1.57, and 1.58
+
+Automatically choose the currently selected SDK for both iOS and OSX
+
+Fixed a couple places where the wrong $XXX_DEV_CMD was being used
+
+-- END UPDATE --
+
+This is a modified version of Pete Goodliffe's original boost.sh build script,
+(and a couple of other sources whom I can't remember)
+
+The original version didn't work with the 64-bit iPhone Simulator,
+and didn't build at all for OSX.
+
+This works for Boost 1.56 and 1.57. If you need the version that builds 1.55
+and older, use this gist:
+	https://gist.github.com/faithfracture/c629ae4c7168216a9856/61be257e1c0839c85743777d0687becad9913bf7
+
+I also ran into an issue where utf8_codecvt_facet.o existed in both the 
+program_options and filesystem libraries. When linking against the
+framework, there was a missing vtable entry for it. Adding the step
+in unpackArchive() that prepends the library name to the .o files
+prevents this error.
+
+I hope this keeps at least one other person from ripping their hair out.
+
+Let me know if you find errors or have optimizations.
+
+I will be updating this as often as necessary.
