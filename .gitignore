@@ -1,0 +1,5 @@
+## Project-specific
+src/
+build/
+*.tar.bz2
+
