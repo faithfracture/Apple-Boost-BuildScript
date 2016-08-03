@@ -12,8 +12,8 @@
 # less painful.
 #
 # To configure the script, define:
-#    BOOST_VERSION:   Which version of Boost to build (e.g. 1.58.0)
-#    BOOST_VERSION2:  Same as BOOST_VERSION, but with _ instead of . (e.g. 1_58_0)
+#    BOOST_VERSION:   Which version of Boost to build (e.g. 1.61.0)
+#    BOOST_VERSION2:  Same as BOOST_VERSION, but with _ instead of . (e.g. 1_61_0)
 #    BOOST_LIBS:      Which Boost libraries to build
 #    IOS_SDK_VERSION: iOS SDK version (e.g. 9.0)
 #    MIN_IOS_VERSION: Minimum iOS Target Version (e.g. 8.0)
@@ -36,8 +36,8 @@ CLEAN=
 NO_CLEAN=
 NO_FRAMEWORK=
 
-BOOST_VERSION=1.58.0
-BOOST_VERSION2=1_58_0
+BOOST_VERSION=1.61.0
+BOOST_VERSION2=1_61_0
 
 MIN_IOS_VERSION=8.0
 IOS_SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
