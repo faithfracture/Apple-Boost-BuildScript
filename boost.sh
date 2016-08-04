@@ -1,3 +1,4 @@
+#!/bin/bash
 #===============================================================================
 # Filename:  boost.sh
 # Author:    Pete Goodliffe
@@ -27,7 +28,7 @@
 #
 #===============================================================================
 
-BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
+BOOST_LIBS="atomic chrono container date_time exception filesystem graph iostreams log program_options random signals regex system thread timer test"
 
 BUILD_IOS=
 BUILD_TVOS=
@@ -56,22 +57,12 @@ for ARCH in $OSX_ARCHS; do
     ((OSX_ARCH_COUNT++))
 done
 
+# Applied to all platforms
+CXX_FLAGS="-std=c++11 -stdlib=libc++"
+
 XCODE_ROOT=`xcode-select -print-path`
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++" 
 
-# The EXTRA_CPPFLAGS definition works around a thread race issue in
-# shared_ptr. I encountered this historically and have not verified that
-# the fix is no longer required. Without using the posix thread primitives
-# an invalid compare-and-swap ARM instruction (non-thread-safe) was used for the
-# shared_ptr use count causing nasty and subtle bugs.
-#
-# Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
-EXTRA_CPPFLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
-    -std=c++11 -stdlib=libc++ -fvisibility=hidden -fvisibility-inlines-hidden \
-    -Wno-unused-local-typedef -fembed-bitcode"
-EXTRA_IOS_CPPFLAGS="$EXTRA_CPPFLAGS -mios-version-min=$MIN_IOS_VERSION"
-EXTRA_TVOS_CPPFLAGS="$EXTRA_CPPFLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
-EXTRA_OSX_CPPFLAGS="$EXTRA_CPPFLAGS -mmacosx-version-min=$MIN_OSX_VERSION"
 THREADS="-j8"
 
 CURRENT_DIR=`pwd`
@@ -129,6 +120,9 @@ OPTIONS:
     
     --boost-version [num]
         Specify which version of Boost to build. Defaults to $BOOST_VERSION.
+
+    --boost-libs [libs]
+        Specify which libraries to build. Space-separate list. Defaults to "$BOOST_LIBS"
 
     --ios-sdk [num]
         Specify the iOS SDK version to build with. Defaults to $IOS_SDK_VERSION.
@@ -217,6 +211,15 @@ parseArgs()
                     BOOST_VERSION2="${BOOST_VERSION//./_}"
                     BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
                     BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
+                    shift
+                else
+                    missingParameter $1
+                fi
+                ;;
+
+            --boost-libs)
+                if [ -n "$2" ]; then
+                    BOOST_LIBS="$2"
                     shift
                 else
                     missingParameter $1
@@ -367,7 +370,7 @@ inventMissingHeaders()
     # to use them on ARM, too.
     echo Invent missing headers
 
-    cp "$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator${IOS_SDK_VERSION}.sdk/usr/include/{crt_externs,bzlib}.h" "$BOOST_SRC"
+    cp "$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator${IOS_SDK_VERSION}.sdk/usr/include/"{crt_externs,bzlib}.h "$BOOST_SRC"
 }
 
 #===============================================================================
@@ -379,12 +382,12 @@ updateBoost()
     if [[ "$1" == "iOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${IOS_SDK_VERSION}~iphone
-: $COMPILER -arch armv7 -arch arm64 $EXTRA_IOS_CPPFLAGS
+: $COMPILER -arch armv7 -arch arm64 $EXTRA_IOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
 using darwin : ${IOS_SDK_VERSION}~iphonesim
-: $COMPILER -arch i386 -arch x86_64 $EXTRA_IOS_CPPFLAGS
+: $COMPILER -arch i386 -arch x86_64 $EXTRA_IOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
@@ -394,12 +397,12 @@ EOF
     if [[ "$1" == "tvOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${TVOS_SDK_VERSION}~appletv
-: $COMPILER -arch arm64 $EXTRA_TVOS_CPPFLAGS -I${XCODE_ROOT}/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS${TVOS_SDK_VERSION}.sdk/usr/include
+: $COMPILER -arch arm64 $EXTRA_TVOS_FLAGS -I${XCODE_ROOT}/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS${TVOS_SDK_VERSION}.sdk/usr/include
 : <striper> <root>$XCODE_ROOT/Platforms/AppleTVOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
 using darwin : ${TVOS_SDK_VERSION}~appletvsim
-: $COMPILER -arch x86_64 $EXTRA_TVOS_CPPFLAGS -I${XCODE_ROOT}/Platforms/AppleTVSimulator.platform/Developer/SDKs/AppleTVSimulator${TVOS_SDK_VERSION}.sdk/usr/include
+: $COMPILER -arch x86_64 $EXTRA_TVOS_FLAGS -I${XCODE_ROOT}/Platforms/AppleTVSimulator.platform/Developer/SDKs/AppleTVSimulator${TVOS_SDK_VERSION}.sdk/usr/include
 : <striper> <root>$XCODE_ROOT/Platforms/AppleTVSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
@@ -409,7 +412,7 @@ EOF
     if [[ "$1" == "OSX" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${OSX_SDK_VERSION}
-: $COMPILER $OSX_ARCH_FLAGS $EXTRA_OSX_CPPFLAGS
+: $COMPILER $OSX_ARCH_FLAGS $EXTRA_OSX_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/MacOSX.platform/Developer
 : <architecture>x86 <target-os>darwin
 ;
@@ -448,13 +451,13 @@ buildBoost_iOS()
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin architecture=arm target-os=iphone \
+        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
         link=static stage >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
     
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin architecture=arm \
+        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
         define=_LITTLE_ENDIAN link=static install >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
@@ -462,7 +465,7 @@ buildBoost_iOS()
 
     echo Building Boost for iPhoneSimulator
     ./b2 $THREADS --build-dir=iphonesim-build --stagedir=iphonesim-build/stage \
-        toolset=darwin-${IOS_SDK_VERSION}~iphonesim architecture=x86 \
+        toolset=darwin-${IOS_SDK_VERSION}~iphonesim cxxflags="${CXX_FLAGS}" architecture=x86 \
         target-os=iphone macosx-version=iphonesim-${IOS_SDK_VERSION} \
         link=static stage >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhoneSimulator. Check log."; exit 1; fi
@@ -477,13 +480,13 @@ buildBoost_tvOS()
     echo Building Boost for AppleTV
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOSOUTPUTDIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
-        architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
+        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
         link=static stage >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTV. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOSOUTPUTDIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
-        architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
+        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
         link=static install >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing AppleTV. Check log."; exit 1; fi
     doneSection
@@ -491,7 +494,7 @@ buildBoost_tvOS()
     echo Building Boost for AppleTVSimulator
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletvsim-build/stage \
         toolset=darwin-${TVOS_SDK_VERSION}~appletvsim architecture=x86 \
-        target-os=iphone link=static stage >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
+        cxxflags="${CXX_FLAGS}" target-os=iphone link=static stage >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTVSimulator. Check log."; exit 1; fi
     doneSection
 }
@@ -503,14 +506,14 @@ buildBoost_OSX()
 
     echo building Boost for OSX
     ./b2 $THREADS --build-dir=osx-build --stagedir=osx-build/stage toolset=clang \
-        --prefix="$OSXOUTPUTDIR/prefix" cxxflags="-std=c++11 -stdlib=libc++ ${OSX_ARCH_FLAGS}" \
+        --prefix="$OSXOUTPUTDIR/prefix" cxxflags="${CXX_FLAGS} ${OSX_ARCH_FLAGS}" \
         linkflags="-stdlib=libc++" link=static threading=multi \
         macosx-version=${OSX_SDK_VERSION} stage >> "${OSXOUTPUTDIR}/osx-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging OSX. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=osx-build --stagedir=osx-build/stage \
         --prefix="$OSXOUTPUTDIR/prefix" toolset=clang \
-        cxxflags="-std=c++11 -stdlib=libc++ ${OSX_ARCH_FLAGS}" \
+        cxxflags="${CXX_FLAGS} ${OSX_ARCH_FLAGS}" \
         linkflags="-stdlib=libc++" link=static threading=multi \
         macosx-version=${OSX_SDK_VERSION} install >> "${OSXOUTPUTDIR}/osx-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing OSX. Check log."; exit 1; fi
@@ -776,7 +779,7 @@ EOF
 # Execution starts here
 #===============================================================================
 
-parseArgs $@
+parseArgs "$@"
 
 if [ -n "$CLEAN" ]; then
     cleanup
@@ -788,6 +791,22 @@ if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_OSX ]]; then
     BUILD_TVOS=1
     BUILD_OSX=1
 fi
+
+# The EXTRA_FLAGS definition works around a thread race issue in
+# shared_ptr. I encountered this historically and have not verified that
+# the fix is no longer required. Without using the posix thread primitives
+# an invalid compare-and-swap ARM instruction (non-thread-safe) was used for the
+# shared_ptr use count causing nasty and subtle bugs.
+#
+# Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
+#
+# Must set these after parseArgs to fill in overriden min versions
+EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
+    -fvisibility=hidden -fvisibility-inlines-hidden \
+    -Wno-unused-local-typedef -fembed-bitcode"
+EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
+EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
+EXTRA_OSX_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_OSX_VERSION"
 
 format="%-20s %s\n"
 format2="%-20s %s (%u)\n"
