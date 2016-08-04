@@ -63,19 +63,6 @@ CXX_FLAGS="-std=c++11 -stdlib=libc++"
 XCODE_ROOT=`xcode-select -print-path`
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++" 
 
-# The EXTRA_FLAGS definition works around a thread race issue in
-# shared_ptr. I encountered this historically and have not verified that
-# the fix is no longer required. Without using the posix thread primitives
-# an invalid compare-and-swap ARM instruction (non-thread-safe) was used for the
-# shared_ptr use count causing nasty and subtle bugs.
-#
-# Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
-EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
-    -fvisibility=hidden -fvisibility-inlines-hidden \
-    -Wno-unused-local-typedef -fembed-bitcode"
-EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
-EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
-EXTRA_OSX_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_OSX_VERSION"
 THREADS="-j8"
 
 CURRENT_DIR=`pwd`
@@ -804,6 +791,22 @@ if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_OSX ]]; then
     BUILD_TVOS=1
     BUILD_OSX=1
 fi
+
+# The EXTRA_FLAGS definition works around a thread race issue in
+# shared_ptr. I encountered this historically and have not verified that
+# the fix is no longer required. Without using the posix thread primitives
+# an invalid compare-and-swap ARM instruction (non-thread-safe) was used for the
+# shared_ptr use count causing nasty and subtle bugs.
+#
+# Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
+#
+# Must set these after parseArgs to fill in overriden min versions
+EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
+    -fvisibility=hidden -fvisibility-inlines-hidden \
+    -Wno-unused-local-typedef -fembed-bitcode"
+EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
+EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
+EXTRA_OSX_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_OSX_VERSION"
 
 format="%-20s %s\n"
 format2="%-20s %s (%u)\n"
