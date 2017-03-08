@@ -7,19 +7,20 @@
 # Modified version
 #===============================================================================
 #
-# Builds a Boost framework for iOS, iOS Simulator, tvOS, tvOS Simulator, and OSX.
+# Builds a Boost framework for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS.
 # Creates a set of universal libraries that can be used on an iOS and in the
 # iOS simulator. Then creates a pseudo-framework to make using boost in Xcode
 # less painful.
 #
 # To configure the script, define:
 #    BOOST_VERSION:   Which version of Boost to build (e.g. 1.61.0)
-#    BOOST_VERSION2:  Same as BOOST_VERSION, but with _ instead of . (e.g. 1_61_0)
 #    BOOST_LIBS:      Which Boost libraries to build
-#    IOS_SDK_VERSION: iOS SDK version (e.g. 9.0)
-#    MIN_IOS_VERSION: Minimum iOS Target Version (e.g. 8.0)
-#    OSX_SDK_VERSION: OSX SDK version (e.g. 10.11)
-#    MIN_OSX_VERSION: Minimum OS X Target Version (e.g. 10.10)
+#    IOS_SDK_VERSION: iOS SDK version (e.g. 10.0)
+#    MIN_IOS_VERSION: Minimum iOS Target Version (e.g. 10.0)
+#    TVOS_SDK_VERSION: iOS SDK version (e.g. 10.0)
+#    MIN_TVOS_VERSION: Minimum iOS Target Version (e.g. 10.0)
+#    MACOS_SDK_VERSION: macOS SDK version (e.g. 10.11)
+#    MIN_MACOS_VERSION: Minimum macOS Target Version (e.g. 10.10)
 #
 # If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not
 # exist in the current directory, this script will attempt to download the
@@ -30,31 +31,32 @@
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
 
+ALL_BOOST_LIBS="atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph graph_parallel iostreams locale log math metaparse mpi program_options python random regex serialization signals system test thread timer type_erasure wave"
+
 BUILD_IOS=
 BUILD_TVOS=
-BUILD_OSX=
+BUILD_MACOS=
 CLEAN=
 NO_CLEAN=
 NO_FRAMEWORK=
 
-BOOST_VERSION=1.61.0
-BOOST_VERSION2=1_61_0
+BOOST_VERSION=1.63.0
 
-MIN_IOS_VERSION=8.0
+MIN_IOS_VERSION=10.0
 IOS_SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
 
-MIN_TVOS_VERSION=9.2
+MIN_TVOS_VERSION=10.0
 TVOS_SDK_VERSION=`xcrun --sdk appletvos --show-sdk-version`
 
-MIN_OSX_VERSION=10.10
-OSX_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
+MIN_MACOS_VERSION=10.10
+MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
 
-OSX_ARCHS="x86_64"
-OSX_ARCH_COUNT=0
-OSX_ARCH_FLAGS=""
-for ARCH in $OSX_ARCHS; do
-    OSX_ARCH_FLAGS="$OSX_ARCH_FLAGS -arch $ARCH"
-    ((OSX_ARCH_COUNT++))
+MACOS_ARCHS="x86_64"
+MACOS_ARCH_COUNT=0
+MACOS_ARCH_FLAGS=""
+for ARCH in $MACOS_ARCHS; do
+    MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
+    ((MACOS_ARCH_COUNT++))
 done
 
 # Applied to all platforms
@@ -68,12 +70,11 @@ THREADS="-j8"
 CURRENT_DIR=`pwd`
 SRCDIR="$CURRENT_DIR/src"
 
-
 IOS_ARM_DEV_CMD="xcrun --sdk iphoneos"
 IOS_SIM_DEV_CMD="xcrun --sdk iphonesimulator"
 TVOS_ARM_DEV_CMD="xcrun --sdk appletvos"
 TVOS_SIM_DEV_CMD="xcrun --sdk appletvsimulator"
-OSX_DEV_CMD="xcrun --sdk macosx"
+MACOS_DEV_CMD="xcrun --sdk macosx"
 
 #===============================================================================
 # Functions
@@ -82,14 +83,14 @@ OSX_DEV_CMD="xcrun --sdk macosx"
 usage()
 {
 cat << EOF
-usage: $0 [{-ios,-tvos,-osx} ...] options
-Build Boost for iOS, iOS Simulator, tvOS, tvOS Simulator, and OS X
-The -ios, -tvos, and -osx options may be specified together. Default
+usage: $0 [{-ios,-tvos,-macos} ...] options
+Build Boost for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS 
+The -ios, -tvos, and -macOS options may be specified together. Default
 is to build all of them.
 
 Examples:
     ./boost.sh -ios -tvos --boost-version 1.56.0
-    ./boost.sh -osx --no-framework
+    ./boost.sh -macos --no-framework
     ./boost.sh --clean
 
 OPTIONS:
@@ -99,8 +100,8 @@ OPTIONS:
     -ios
         Build for the iOS platform.
 
-    -osx
-        Build for the OS X platform.
+    -macos
+        Build for the macOS platform.
 
     -tvos
         Build for the tvOS platform.
@@ -108,28 +109,31 @@ OPTIONS:
     --boost-version [num]
         Specify which version of Boost to build. Defaults to $BOOST_VERSION.
 
-    --boost-libs [libs]
-        Specify which libraries to build. Space-separate list.
-        Defaults to:
-            $BOOST_LIBS
+    --boost-libs "{all|none|(lib, ...)}"
+        Specify which libraries to build. Space-separate list. Pass 'all' to
+        build all optional libraries. Pass 'none' to skip building optional
+        libraries.
+        Defaults to: $BOOST_LIBS
+
         Boost libraries requiring separate building are:
             - atomic
             - chrono
-            - container
-            - context
-            - coroutine
-            - coroutine2
+            - container (Unavailable on tvOS)
+            - context   (macOS only)
+            - coroutine (macOS only)
+            - coroutine2    (macOS only)
             - date_time
             - exception
+            - fiber     (No complaints when building for iOS / tvOS, but no library is output)
             - filesystem
             - graph
-            - graph_parallel
+            - graph_parallel    (No complaints when building for iOS / tvOS, but no library is output)
             - iostreams
             - locale
             - log
-            - math
-            - metaparse
-            - mpi
+            - math  (Unavailable* on iOS, tvOS)
+            - metaparse (Unavailable on tvOS)
+            - mpi   (macOS only. Requires mpic++ (openmpi))
             - program_options
             - python
             - random
@@ -137,11 +141,32 @@ OPTIONS:
             - serialization
             - signals
             - system
-            - test
+            - test      (Unavailable on tvOS)
             - thread
             - timer
             - type_erasure
             - wave
+
+        NOTE:
+        Unsupported and unavailable libraries are ignored when building for the
+        platforms they are unsupported on. It's OK to pass them as arguments,
+        just be aware that they will not be built for those platforms.
+
+        Several libraries are unavailable on tvOS only because they make calls
+        that are not available in tvOS.
+
+        There are a couple of libraries that *appear* to build successfully for
+        iOS and / or tvOS, but there is no library output, so I don't know that
+        they are actually built for those platforms. I don't use them so I can't
+        say for certain. If you find out one way or the other, please let me
+        know so I can update this.
+
+        * math fails for iOS and tvOS with a complaint about using a PCH with
+        multiple architectures defined. I don't know how to get around this if
+        you need a specific architecture (like arm64), since the only RISC 
+        option for the <architeciture> jamfile feature tag is 'arm'. I'm sure
+        there's a way to get this working by tweaking user-config, but I haven't
+        the time to figure it out now.
 
     --ios-sdk [num]
         Specify the iOS SDK version to build with. Defaults to $IOS_SDK_VERSION.
@@ -155,11 +180,13 @@ OPTIONS:
     --min-tvos_version [num]
         Specify the minimum tvOS version to target. Defaults to $MIN_TVOS_VERSION.
 
-    --osx-sdk [num]
-        Specify the OS X SDK version to build with. Defaults to $OSX_SDK_VERSION.
+    --macos-sdk [num]
+        Specify the macOS SDK version to build with. Defaults to $MACOS_SDK_VERSION.
 
-    --min-osx-version [num]
-        Specify the minimum OS X version to target.  Defaults to $MIN_OSX_VERSION.
+    --min-macos-version [num]
+        Specify the minimum macOS version to target.  Defaults to $MIN_MACOS_VERSION.
+        NOTE: It seems that this is ignored for some reason, even though it is
+        (I think) being correctly passed to the build system.
 
     --no-framework
         Do not create the framework.
@@ -170,6 +197,9 @@ OPTIONS:
 
     --no-clean
         Do not clean up existing build artifacts before building.
+
+    -j | --threads [num]
+        Specify the number of threads to use. Defaults to $THREADS
 
 EOF
 }
@@ -205,6 +235,7 @@ unknownParameter()
 
 parseArgs()
 {
+    CUSTOM_LIBS=
     while [ "$1" != "" ]; do
         case $1 in
             -h | --help)
@@ -220,16 +251,13 @@ parseArgs()
                 BUILD_TVOS=1
                 ;;
 
-            -osx)
-                BUILD_OSX=1
+            -macos)
+                BUILD_MACOS=1
                 ;;
 
             --boost-version)
                 if [ -n $2 ]; then
                     BOOST_VERSION=$2
-                    BOOST_VERSION2="${BOOST_VERSION//./_}"
-                    BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
-                    BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
                     shift
                 else
                     missingParameter $1
@@ -238,7 +266,7 @@ parseArgs()
 
             --boost-libs)
                 if [ -n "$2" ]; then
-                    BOOST_LIBS="$2"
+                    CUSTOM_LIBS=$2
                     shift
                 else
                     missingParameter $1
@@ -264,7 +292,7 @@ parseArgs()
                 ;;
 
             --tvos-sdk)
-                if [ -n $2]; then
+                if [ -n $2 ]; then
                     TVOS_SDK_VERSION=$2
                     shift
                 else
@@ -273,7 +301,7 @@ parseArgs()
                 ;;
 
             --min-tvos-version)
-                if [ -n $2]; then
+                if [ -n $2 ]; then
                     MIN_TVOS_VERSION=$2
                     shift
                 else
@@ -281,18 +309,18 @@ parseArgs()
                 fi
                 ;;
 
-            --osx-sdk)
+            --macos-sdk)
                  if [ -n $2 ]; then
-                    OSX_SDK_VERSION=$2
+                    MACOS_SDK_VERSION=$2
                     shift
                 else
                     missingParameter $1
                 fi
                 ;;
 
-            --min-osx-version)
+            --min-macos-version)
                 if [ -n $2 ]; then
-                    MIN_OSX_VERSION=$2
+                    MIN_MACOS_VERSION=$2
                     shift
                 else
                     missingParameter $1
@@ -311,6 +339,15 @@ parseArgs()
                 NO_FRAMEWORK=1
                 ;;
 
+            -j | --threads)
+                if [ -n $2 ]; then
+                    THREADS="-j$2"
+                    shift
+                else
+                    missingParameter $1
+                fi
+                ;;
+
             *)
                 unknownParameter $1
                 ;;
@@ -318,6 +355,15 @@ parseArgs()
 
         shift
     done
+
+    if [[ -n $CUSTOM_LIBS ]]; then
+        if [[ "$CUSTOM_LIBS" == "none" ]]; then
+            CUSTOM_LIBS=
+        elif [[ "$CUSTOM_LIBS" == "all" ]]; then
+            CUSTOM_LIBS=$ALL_BOOST_LIBS
+        fi
+        BOOST_LIBS=$CUSTOM_LIBS
+    fi
 }
 
 doneSection()
@@ -337,16 +383,16 @@ cleanup()
     if [[ -n $BUILD_IOS ]]; then
         rm -r "$BOOST_SRC/iphone-build"
         rm -r "$BOOST_SRC/iphonesim-build"
-        rm -r "$IOSOUTPUTDIR"
+        rm -r "$IOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_TVOS ]]; then
         rm -r "$BOOST_SRC/appletv-build"
         rm -r "$BOOST_SRC/appletvsim-build"
-        rm -r "$TVOSOUTPUTDIR"
+        rm -r "$TVOS_OUTPUT_DIR"
     fi
-    if [[ -n $BUILD_OSX ]]; then
-        rm -r "$BOOST_SRC/osx-build"
-        rm -r "$OSXOUTPUTDIR"
+    if [[ -n $BUILD_MACOS ]]; then
+        rm -r "$BOOST_SRC/macos-build"
+        rm -r "$MACOS_OUTPUT_DIR"
     fi
 
     doneSection
@@ -397,6 +443,11 @@ updateBoost()
 {
     echo Updating boost into $BOOST_SRC...
 
+    USING_MPI=
+    if [[ $BOOST_LIBS == *"mpi"* ]]; then
+        USING_MPI="using mpi ;" # trailing space needed
+    fi
+
     if [[ "$1" == "iOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${IOS_SDK_VERSION}~iphone
@@ -409,6 +460,7 @@ using darwin : ${IOS_SDK_VERSION}~iphonesim
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
+$USING_MPI
 EOF
     fi
 
@@ -424,16 +476,18 @@ using darwin : ${TVOS_SDK_VERSION}~appletvsim
 : <striper> <root>$XCODE_ROOT/Platforms/AppleTVSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
+$USING_MPI
 EOF
     fi
 
-    if [[ "$1" == "OSX" ]]; then
+    if [[ "$1" == "macOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
-using darwin : ${OSX_SDK_VERSION}
-: $COMPILER $OSX_ARCH_FLAGS $EXTRA_OSX_FLAGS
+using darwin : ${MACOS_SDK_VERSION}
+: $COMPILER $MACOS_ARCH_FLAGS $EXTRA_MACOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/MacOSX.platform/Developer
 : <architecture>x86 <target-os>darwin
 ;
+$USING_MPI
 EOF
     fi
 
@@ -445,16 +499,34 @@ EOF
 bootstrapBoost()
 {
     cd $BOOST_SRC
-    BOOTSTRAP_LIBS=$BOOST_LIBS
-    if [[ "$1" == "tvOS" ]]; then
-        # Boost Test makes a call that is not available on tvOS (as of 1.61.0)
-        # If we're bootstraping for tvOS, just remove the test library
-        BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/test//g")
-    fi
+    if [[ -z $BOOST_LIBS ]]; then
+        ./bootstrap.sh --without-libraries=${ALL_BOOST_LIBS// /,}
+    else
+        BOOTSTRAP_LIBS=$BOOST_LIBS
+        # Strip out unsupported / unavailable libraries
+        if [[ "$1" == "iOS" ]]; then
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/context//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine2//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/math//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/mpi//")
+        fi
 
-    BOOST_LIBS_COMMA=$(echo $BOOTSTRAP_LIBS | sed -e "s/ /,/g")
-    echo "Bootstrapping for $1 (with libs $BOOST_LIBS_COMMA)"
-    ./bootstrap.sh --with-libraries=$BOOST_LIBS_COMMA
+        if [[ "$1" == "tvOS" ]]; then
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/container//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/context//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine2//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/math//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/metaparse//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/mpi//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/test//")
+        fi
+
+        BOOST_LIBS_COMMA=${BOOTSTRAP_LIBS// /,}
+        echo "Bootstrapping for $1 (with libs $BOOST_LIBS_COMMA)"
+        ./bootstrap.sh --with-libraries=$BOOST_LIBS_COMMA
+    fi
 
     doneSection
 }
@@ -464,20 +536,20 @@ bootstrapBoost()
 buildBoost_iOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $IOSOUTPUTDIR
+    mkdir -p $IOS_OUTPUT_DIR
 
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone \
+        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
-        link=static stage >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
+        link=static stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
     
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOSOUTPUTDIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm \
+        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
-        define=_LITTLE_ENDIAN link=static install >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
+        define=_LITTLE_ENDIAN link=static install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
     doneSection
 
@@ -485,7 +557,7 @@ buildBoost_iOS()
     ./b2 $THREADS --build-dir=iphonesim-build --stagedir=iphonesim-build/stage \
         toolset=darwin-${IOS_SDK_VERSION}~iphonesim cxxflags="${CXX_FLAGS}" architecture=x86 \
         target-os=iphone macosx-version=iphonesim-${IOS_SDK_VERSION} \
-        link=static stage >> "${IOSOUTPUTDIR}/iphone-build.log" 2>&1
+        link=static stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhoneSimulator. Check log."; exit 1; fi
     doneSection
 }
@@ -493,48 +565,48 @@ buildBoost_iOS()
 buildBoost_tvOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $TVOSOUTPUTDIR
+    mkdir -p $TVOS_OUTPUT_DIR
 
     echo Building Boost for AppleTV
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
-        --prefix="$TVOSOUTPUTDIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
+        --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
         cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
-        link=static stage >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
+        link=static stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTV. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
-        --prefix="$TVOSOUTPUTDIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
+        --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
         cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
-        link=static install >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
+        link=static install >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing AppleTV. Check log."; exit 1; fi
     doneSection
 
     echo Building Boost for AppleTVSimulator
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletvsim-build/stage \
         toolset=darwin-${TVOS_SDK_VERSION}~appletvsim architecture=x86 \
-        cxxflags="${CXX_FLAGS}" target-os=iphone link=static stage >> "${TVOSOUTPUTDIR}/tvos-build.log" 2>&1
+        cxxflags="${CXX_FLAGS}" target-os=iphone link=static stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTVSimulator. Check log."; exit 1; fi
     doneSection
 }
 
-buildBoost_OSX()
+buildBoost_macOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $OSXOUTPUTDIR
+    mkdir -p $MACOS_OUTPUT_DIR
 
-    echo building Boost for OSX
-    ./b2 $THREADS --build-dir=osx-build --stagedir=osx-build/stage toolset=clang \
-        --prefix="$OSXOUTPUTDIR/prefix" cxxflags="${CXX_FLAGS} ${OSX_ARCH_FLAGS}" \
+    echo building Boost for macOS
+    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage toolset=clang \
+        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" \
         linkflags="-stdlib=libc++" link=static threading=multi \
-        macosx-version=${OSX_SDK_VERSION} stage >> "${OSXOUTPUTDIR}/osx-build.log" 2>&1
-    if [ $? != 0 ]; then echo "Error staging OSX. Check log."; exit 1; fi
+        macosx-version=${MACOS_SDK_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
+    if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
-    ./b2 $THREADS --build-dir=osx-build --stagedir=osx-build/stage \
-        --prefix="$OSXOUTPUTDIR/prefix" toolset=clang \
-        cxxflags="${CXX_FLAGS} ${OSX_ARCH_FLAGS}" \
+    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage \
+        --prefix="$MACOS_OUTPUT_DIR/prefix" toolset=clang \
+        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" \
         linkflags="-stdlib=libc++" link=static threading=multi \
-        macosx-version=${OSX_SDK_VERSION} install >> "${OSXOUTPUTDIR}/osx-build.log" 2>&1
-    if [ $? != 0 ]; then echo "Error installing OSX. Check log."; exit 1; fi
+        macosx-version=${MACOS_SDK_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
+    if [ $? != 0 ]; then echo "Error installing macOS. Check log."; exit 1; fi
 
     doneSection
 }
@@ -571,26 +643,26 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
-        mkdir -p "$IOSBUILDDIR/armv7/obj"
-        mkdir -p "$IOSBUILDDIR/arm64/obj"
+        mkdir -p "$IOS_BUILD_DIR/armv7/obj"
+        mkdir -p "$IOS_BUILD_DIR/arm64/obj"
 
         # iOS Simulator
-        mkdir -p "$IOSBUILDDIR/i386/obj"
-        mkdir -p "$IOSBUILDDIR/x86_64/obj"
+        mkdir -p "$IOS_BUILD_DIR/i386/obj"
+        mkdir -p "$IOS_BUILD_DIR/x86_64/obj"
     fi
 
     if [[ -n $BUILD_TVOS ]]; then
         # tvOS Device
-        mkdir -p "$TVOSBUILDDIR/arm64/obj"
+        mkdir -p "$TVOS_BUILD_DIR/arm64/obj"
 
         # tvOS Simulator
-        mkdir -p "$TVOSBUILDDIR/x86_64/obj"
+        mkdir -p "$TVOS_BUILD_DIR/x86_64/obj"
     fi
 
-    if [[ -n $BUILD_OSX ]]; then
-        # OSX
-        for ARCH in $OSX_ARCHS; do
-            mkdir -p "$OSXBUILDDIR/$ARCH/obj"
+    if [[ -n $BUILD_MACOS ]]; then
+        # macOS
+        for ARCH in $MACOS_ARCHS; do
+            mkdir -p "$MACOS_BUILD_DIR/$ARCH/obj"
         done
     fi
 
@@ -607,32 +679,32 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         if [[ -n $BUILD_IOS ]]; then
             $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                -thin armv7 -o "$IOSBUILDDIR/armv7/libboost_$NAME.a"
+                -thin armv7 -o "$IOS_BUILD_DIR/armv7/libboost_$NAME.a"
             $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                -thin arm64 -o "$IOSBUILDDIR/arm64/libboost_$NAME.a"
+                -thin arm64 -o "$IOS_BUILD_DIR/arm64/libboost_$NAME.a"
 
             $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                -thin i386 -o "$IOSBUILDDIR/i386/libboost_$NAME.a"
+                -thin i386 -o "$IOS_BUILD_DIR/i386/libboost_$NAME.a"
             $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                -thin x86_64 -o "$IOSBUILDDIR/x86_64/libboost_$NAME.a"
+                -thin x86_64 -o "$IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
             $TVOS_ARM_DEV_CMD lipo "appletv-build/stage/lib/libboost_$NAME.a" \
-                -thin arm64 -o "$TVOSBUILDDIR/arm64/libboost_$NAME.a"
+                -thin arm64 -o "$TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
 
             $TVOS_SIM_DEV_CMD lipo "appletvsim-build/stage/lib/libboost_$NAME.a" \
-                -thin x86_64 -o "$TVOSBUILDDIR/x86_64/libboost_$NAME.a"
+                -thin x86_64 -o "$TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
         fi
 
-        if [[ -n $BUILD_OSX ]]; then
-            if (( $OSX_ARCH_COUNT == 1 )); then
-                cp "osx-build/stage/lib/libboost_$NAME.a" \
-                    "$OSXBUILDDIR/$ARCH/libboost_$NAME.a"
+        if [[ -n $BUILD_MACOS ]]; then
+            if (( $MACOS_ARCH_COUNT == 1 )); then
+                cp "macos-build/stage/lib/libboost_$NAME.a" \
+                    "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
             else
-                for ARCH in $OSX_ARCHS; do
-                    $OSX_DEV_CMD lipo "osx-build/stage/lib/libboost_$NAME.a" \
-                        -thin $ARCH -o "$OSXBUILDDIR/$ARCH/libboost_$NAME.a"
+                for ARCH in $MACOS_ARCHS; do
+                    $MACOS_DEV_CMD lipo "macos-build/stage/lib/libboost_$NAME.a" \
+                        -thin $ARCH -o "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
                 done
             fi
         fi
@@ -647,36 +719,36 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         echo "Decomposing libboost_${NAME}.a"
         if [[ -n $BUILD_IOS ]]; then
-            unpackArchive "$IOSBUILDDIR/armv7/obj" $NAME
-            unpackArchive "$IOSBUILDDIR/arm64/obj" $NAME
-            unpackArchive "$IOSBUILDDIR/i386/obj" $NAME
-            unpackArchive "$IOSBUILDDIR/x86_64/obj" $NAME
+            unpackArchive "$IOS_BUILD_DIR/armv7/obj" $NAME
+            unpackArchive "$IOS_BUILD_DIR/arm64/obj" $NAME
+            unpackArchive "$IOS_BUILD_DIR/i386/obj" $NAME
+            unpackArchive "$IOS_BUILD_DIR/x86_64/obj" $NAME
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
-            unpackArchive "$TVOSBUILDDIR/arm64/obj" $NAME
-            unpackArchive "$TVOSBUILDDIR/x86_64/obj" $NAME
+            unpackArchive "$TVOS_BUILD_DIR/arm64/obj" $NAME
+            unpackArchive "$TVOS_BUILD_DIR/x86_64/obj" $NAME
         fi
 
-        if [[ -n $BUILD_OSX ]]; then
-            for ARCH in $OSX_ARCHS; do
-                unpackArchive "$OSXBUILDDIR/$ARCH/obj" $NAME
+        if [[ -n $BUILD_MACOS ]]; then
+            for ARCH in $MACOS_ARCHS; do
+                unpackArchive "$MACOS_BUILD_DIR/$ARCH/obj" $NAME
             done
         fi
     done
 
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
     if [[ -n $BUILD_IOS ]]; then
-        cd "$IOSBUILDDIR"
+        cd "$IOS_BUILD_DIR"
         rm */libboost.a
     fi
     if [[ -n $BUILD_TVOS ]]; then
-        cd "$TVOSBUILDDIR"
+        cd "$TVOS_BUILD_DIR"
         rm */libboost.a
     fi
-    if [[ -n $BUILD_OSX ]]; then
-        for ARCH in $OSX_ARCHS; do
-            rm "$OSXBUILDDIR/$ARCH/libboost.a"
+    if [[ -n $BUILD_MACOS ]]; then
+        for ARCH in $MACOS_ARCHS; do
+            rm "$MACOS_BUILD_DIR/$ARCH/libboost.a"
         done
     fi
 
@@ -692,27 +764,27 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         if [[ -n $BUILD_IOS ]]; then
             echo ...armv7
-            (cd "$IOSBUILDDIR/armv7"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$IOS_BUILD_DIR/armv7"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             echo ...arm64
-            (cd "$IOSBUILDDIR/arm64"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$IOS_BUILD_DIR/arm64"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
 
             echo ...i386
-            (cd "$IOSBUILDDIR/i386";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$IOS_BUILD_DIR/i386";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             echo ...x86_64
-            (cd "$IOSBUILDDIR/x86_64";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$IOS_BUILD_DIR/x86_64";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
             echo ...tvOS-arm64
-            (cd "$TVOSBUILDDIR/arm64"; $TVOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$TVOS_BUILD_DIR/arm64"; $TVOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             echo ...tvOS-x86_64
-            (cd "$TVOSBUILDDIR/x86_64";  $TVOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            (cd "$TVOS_BUILD_DIR/x86_64";  $TVOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
         fi
 
-        if [[ -n $BUILD_OSX ]]; then
-            for ARCH in $OSX_ARCHS; do
-                echo ...osx-$ARCH
-                (cd "$OSXBUILDDIR/$ARCH";  $OSX_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+        if [[ -n $BUILD_MACOS ]]; then
+            for ARCH in $MACOS_ARCHS; do
+                echo ...macos-$ARCH
+                (cd "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             done
         fi
     done
@@ -752,16 +824,18 @@ buildFramework()
 
     FRAMEWORK_INSTALL_NAME="$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_NAME"
 
-    echo "Lipoing library into $FRAMEWORK_INSTALL_NAME..."
-    cd "$BUILDDIR"
-    if [[ -n $BUILD_IOS ]]; then
-        $IOS_ARM_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
-    fi
-    if [[ -n $BUILD_TVOS ]]; then
-        $TVOS_ARM_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
-    fi
-    if [[ -n $BUILD_OSX ]]; then
-        $OSX_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
+    if [[ -n $BOOST_LIBS ]]; then
+        echo "Lipoing library into $FRAMEWORK_INSTALL_NAME..."
+        cd "$BUILDDIR"
+        if [[ -n $BUILD_IOS ]]; then
+            $IOS_ARM_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
+        fi
+        if [[ -n $BUILD_TVOS ]]; then
+            $TVOS_ARM_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
+        fi
+        if [[ -n $BUILD_MACOS ]]; then
+            $MACOS_DEV_CMD lipo -create */libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
+        fi
     fi
 
     echo "Framework: Copying includes..."
@@ -799,10 +873,10 @@ EOF
 
 parseArgs "$@"
 
-if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_OSX ]]; then
+if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS ]]; then
     BUILD_IOS=1
     BUILD_TVOS=1
-    BUILD_OSX=1
+    BUILD_MACOS=1
 fi
 
 # The EXTRA_FLAGS definition works around a thread race issue in
@@ -819,42 +893,44 @@ EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
     -Wno-unused-local-typedef -fembed-bitcode"
 EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
 EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
-EXTRA_OSX_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_OSX_VERSION"
+EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
 
+BOOST_VERSION2="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
 BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
 OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
-IOSOUTPUTDIR="$OUTPUT_DIR/ios"
-TVOSOUTPUTDIR="$OUTPUT_DIR/tvos"
-OSXOUTPUTDIR="$OUTPUT_DIR/osx"
-IOSBUILDDIR="$IOSOUTPUTDIR/build"
-TVOSBUILDDIR="$TVOSOUTPUTDIR/build"
-OSXBUILDDIR="$OSXOUTPUTDIR/build"
-IOSLOG="> $IOSOUTPUTDIR/iphone.log 2>&1"
-IOSFRAMEWORKDIR="$IOSOUTPUTDIR/framework"
-TVOSFRAMEWORKDIR="$TVOSOUTPUTDIR/framework"
-OSXFRAMEWORKDIR="$OSXOUTPUTDIR/framework"
+IOS_OUTPUT_DIR="$OUTPUT_DIR/ios"
+TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos"
+MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos"
+IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
+TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
+MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
+IOSLOG="> $IOS_OUTPUT_DIR/iphone.log 2>&1"
+IOS_FRAMEWORK_DIR="$IOS_OUTPUT_DIR/framework"
+TVOS_FRAMEWORK_DIR="$TVOS_OUTPUT_DIR/framework"
+MACOS_FRAMEWORK_DIR="$MACOS_OUTPUT_DIR/framework"
 
 format="%-20s %s\n"
 format2="%-20s %s (%u)\n"
 printf "$format" "BUILD_IOS:" $( [[ -n $BUILD_IOS ]] && echo "YES" || echo "NO")
 printf "$format" "BUILD_TVOS:" $( [[ -n $BUILD_TVOS ]] && echo "YES" || echo "NO")
-printf "$format" "BUILD_OSX:" $( [[ -n $BUILD_OSX ]] && echo "YES" || echo "NO")
+printf "$format" "BUILD_MACOS:" $( [[ -n $BUILD_MACOS ]] && echo "YES" || echo "NO")
 printf "$format" "BOOST_VERSION:" "$BOOST_VERSION"
 printf "$format" "IOS_SDK_VERSION:" "$IOS_SDK_VERSION"
 printf "$format" "MIN_IOS_VERSION:" "$MIN_IOS_VERSION"
 printf "$format" "TVOS_SDK_VERSION:" "$TVOS_SDK_VERSION"
 printf "$format" "MIN_TVOS_VERSION:" "$MIN_TVOS_VERSION"
-printf "$format" "OSX_SDK_VERSION:" "$OSX_SDK_VERSION"
-printf "$format" "MIN_OSX_VERSION:" "$MIN_OSX_VERSION"
-printf "$format2" "OSX_ARCHS:" "$OSX_ARCHS" $OSX_ARCH_COUNT
+printf "$format" "MACOS_SDK_VERSION:" "$MACOS_SDK_VERSION"
+printf "$format" "MIN_MACOS_VERSION:" "$MIN_MACOS_VERSION"
+printf "$format2" "MACOS_ARCHS:" "$MACOS_ARCHS" $MACOS_ARCH_COUNT
 printf "$format" "BOOST_LIBS:" "$BOOST_LIBS"
 printf "$format" "BOOST_SRC:" "$BOOST_SRC"
-printf "$format" "IOSBUILDDIR:" "$IOSBUILDDIR"
-printf "$format" "OSXBUILDDIR:" "$OSXBUILDDIR"
-printf "$format" "IOSFRAMEWORKDIR:" "$IOSFRAMEWORKDIR"
-printf "$format" "OSXFRAMEWORKDIR:" "$OSXFRAMEWORKDIR"
+printf "$format" "IOS_BUILD_DIR:" "$IOS_BUILD_DIR"
+printf "$format" "MACOS_BUILD_DIR:" "$MACOS_BUILD_DIR"
+printf "$format" "IOS_FRAMEWORK_DIR:" "$IOS_FRAMEWORK_DIR"
+printf "$format" "MACOS_FRAMEWORK_DIR:" "$MACOS_FRAMEWORK_DIR"
 printf "$format" "XCODE_ROOT:" "$XCODE_ROOT"
+printf "$format" "THREADS:" "$THREADS"
 echo
 
 if [ -n "$CLEAN" ]; then
@@ -880,25 +956,25 @@ if [[ -n $BUILD_TVOS ]]; then
     bootstrapBoost "tvOS"
     buildBoost_tvOS
 fi
-if [[ -n $BUILD_OSX ]]; then
-    updateBoost "OSX"
-    bootstrapBoost "OSX"
-    buildBoost_OSX
+if [[ -n $BUILD_MACOS ]]; then
+    updateBoost "macOS"
+    bootstrapBoost "macOS"
+    buildBoost_macOS
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
 
 if [ -z $NO_FRAMEWORK ]; then
     if [[ -n $BUILD_IOS ]]; then
-        buildFramework "$IOSFRAMEWORKDIR" "$IOSOUTPUTDIR"
+        buildFramework "$IOS_FRAMEWORK_DIR" "$IOS_OUTPUT_DIR"
     fi
 
     if [[ -n $BUILD_TVOS ]]; then
-        buildFramework "$TVOSFRAMEWORKDIR" "$TVOSOUTPUTDIR"
+        buildFramework "$TVOS_FRAMEWORK_DIR" "$TVOS_OUTPUT_DIR"
     fi
 
-    if [[ -n $BUILD_OSX ]]; then
-        buildFramework "$OSXFRAMEWORKDIR" "$OSXOUTPUTDIR"
+    if [[ -n $BUILD_MACOS ]]; then
+        buildFramework "$MACOS_FRAMEWORK_DIR" "$MACOS_OUTPUT_DIR"
     fi
 fi
 
