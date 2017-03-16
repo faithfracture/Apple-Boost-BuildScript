@@ -402,7 +402,7 @@ cleanup()
 
 downloadBoost()
 {
-    if [ ! -s $BOOST_TARBALL ]; then
+    if [ ! -s "$BOOST_TARBALL" ]; then
         echo "Downloading boost ${BOOST_VERSION}"
         curl -L -o "$BOOST_TARBALL" \
             http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION2}.tar.bz2/download
