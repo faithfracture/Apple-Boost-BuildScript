@@ -418,9 +418,9 @@ unpackBoost()
 
     echo Unpacking boost into "$SRCDIR"...
 
-    [ -d $SRCDIR ]    || mkdir -p "$SRCDIR"
-    [ -d $BOOST_SRC ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
-    [ -d $BOOST_SRC ] && echo "    ...unpacked as $BOOST_SRC"
+    [ -d "$SRCDIR" ]    || mkdir -p "$SRCDIR"
+    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
+    [ -d "$BOOST_SRC" ] && echo "    ...unpacked as $BOOST_SRC"
 
     doneSection
 }
@@ -498,7 +498,7 @@ EOF
 
 bootstrapBoost()
 {
-    cd $BOOST_SRC
+    cd "$BOOST_SRC"
     if [[ -z $BOOST_LIBS ]]; then
         ./bootstrap.sh --without-libraries=${ALL_BOOST_LIBS// /,}
     else
@@ -592,7 +592,7 @@ buildBoost_tvOS()
 buildBoost_macOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $MACOS_OUTPUT_DIR
+    mkdir -p "$MACOS_OUTPUT_DIR"
 
     echo building Boost for macOS
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage toolset=clang \
