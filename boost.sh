@@ -536,7 +536,7 @@ bootstrapBoost()
 buildBoost_iOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $IOS_OUTPUT_DIR
+    mkdir -p "$IOS_OUTPUT_DIR"
 
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
@@ -565,7 +565,7 @@ buildBoost_iOS()
 buildBoost_tvOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $TVOS_OUTPUT_DIR
+    mkdir -p "$TVOS_OUTPUT_DIR"
 
     echo Building Boost for AppleTV
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
