@@ -594,13 +594,13 @@ buildBoost_macOS()
 
     echo building Boost for macOS
     ./b2 $THREADS toolset=darwin-${MACOS_SDK_VERSION} --build-dir=macos-build --stagedir=macos-build/stage \
-        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" architecture=x86 \
+        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" architecture=x86 address-model=64 \
         linkflags="-stdlib=libc++" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} macosx-version-min=${MIN_MACOS_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
     ./b2 $THREADS toolset=darwin-${MACOS_SDK_VERSION} --build-dir=macos-build --stagedir=macos-build/stage \
-        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" architecture=x86 \
+        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" architecture=x86 address-model=64 \
         linkflags="-stdlib=libc++" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} macosx-version-min=${MIN_MACOS_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing macOS. Check log."; exit 1; fi
