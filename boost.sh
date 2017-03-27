@@ -402,7 +402,7 @@ cleanup()
 
 downloadBoost()
 {
-    if [ ! -s $BOOST_TARBALL ]; then
+    if [ ! -s "$BOOST_TARBALL" ]; then
         echo "Downloading boost ${BOOST_VERSION}"
         curl -L -o "$BOOST_TARBALL" \
             http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION2}.tar.bz2/download
@@ -418,9 +418,9 @@ unpackBoost()
 
     echo Unpacking boost into "$SRCDIR"...
 
-    [ -d $SRCDIR ]    || mkdir -p "$SRCDIR"
-    [ -d $BOOST_SRC ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
-    [ -d $BOOST_SRC ] && echo "    ...unpacked as $BOOST_SRC"
+    [ -d "$SRCDIR" ]    || mkdir -p "$SRCDIR"
+    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
+    [ -d "$BOOST_SRC" ] && echo "    ...unpacked as $BOOST_SRC"
 
     doneSection
 }
@@ -498,7 +498,7 @@ EOF
 
 bootstrapBoost()
 {
-    cd $BOOST_SRC
+    cd "$BOOST_SRC"
     if [[ -z $BOOST_LIBS ]]; then
         ./bootstrap.sh --without-libraries=${ALL_BOOST_LIBS// /,}
     else
@@ -536,7 +536,7 @@ bootstrapBoost()
 buildBoost_iOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $IOS_OUTPUT_DIR
+    mkdir -p "$IOS_OUTPUT_DIR"
 
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
@@ -565,7 +565,7 @@ buildBoost_iOS()
 buildBoost_tvOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $TVOS_OUTPUT_DIR
+    mkdir -p "$TVOS_OUTPUT_DIR"
 
     echo Building Boost for AppleTV
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
@@ -592,7 +592,7 @@ buildBoost_tvOS()
 buildBoost_macOS()
 {
     cd "$BOOST_SRC"
-    mkdir -p $MACOS_OUTPUT_DIR
+    mkdir -p "$MACOS_OUTPUT_DIR"
 
     echo building Boost for macOS
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage toolset=clang \
