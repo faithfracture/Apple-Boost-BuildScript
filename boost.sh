@@ -30,8 +30,11 @@
 #===============================================================================
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
-
-ALL_BOOST_LIBS="atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph graph_parallel iostreams locale log math metaparse mpi program_options python random regex serialization signals system test thread timer type_erasure wave"
+ALL_BOOST_LIBS=\
+"atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph"\
+" graph_parallel iostreams locale log math metaparse mpi program_options python random regex"\
+" serialization signals system test thread timer type_erasure wave"
+BOOTSTRAP_LIBS=""
 
 BUILD_IOS=
 BUILD_TVOS=
@@ -89,7 +92,7 @@ The -ios, -tvos, and -macOS options may be specified together. Default
 is to build all of them.
 
 Examples:
-    ./boost.sh -ios -tvos --boost-version 1.56.0
+    ./boost.sh -ios -tvos --boost-version 1.63.0
     ./boost.sh -macos --no-framework
     ./boost.sh --clean
 
@@ -505,25 +508,26 @@ bootstrapBoost()
         BOOTSTRAP_LIBS=$BOOST_LIBS
         # Strip out unsupported / unavailable libraries
         if [[ "$1" == "iOS" ]]; then
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/context//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine2//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/math//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/mpi//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/context//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/coroutine//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/coroutine2//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/math//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/mpi//')
         fi
 
         if [[ "$1" == "tvOS" ]]; then
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/container//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/context//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/coroutine2//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/math//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/metaparse//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/mpi//")
-            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e "s/test//")
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/container//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/context//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/coroutine//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/coroutine2//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/math//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/metaparse//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/mpi//')
+            BOOTSTRAP_LIBS=$(echo $BOOTSTRAP_LIBS | sed -e 's/test//')
         fi
 
-        BOOST_LIBS_COMMA=${BOOTSTRAP_LIBS// /,}
+        echo "Bootstrap libs ${BOOTSTRAP_LIBS}"
+        BOOST_LIBS_COMMA=$(echo $BOOTSTRAP_LIBS | sed -e 's/[[:space:]]/,/g')
         echo "Bootstrapping for $1 (with libs $BOOST_LIBS_COMMA)"
         ./bootstrap.sh --with-libraries=$BOOST_LIBS_COMMA
     fi
@@ -670,7 +674,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo Splitting all existing fat binaries...
 
-    for NAME in $BOOST_LIBS; do
+    for NAME in $BOOTSTRAP_LIBS; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -712,7 +716,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo "Decomposing each architecture's .a files"
 
-    for NAME in $BOOST_LIBS; do
+    for NAME in $BOOTSTRAP_LIBS; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -752,7 +756,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         done
     fi
 
-    for NAME in $BOOST_LIBS; do
+    for NAME in $BOOTSTRAP_LIBS; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -824,7 +828,7 @@ buildFramework()
 
     FRAMEWORK_INSTALL_NAME="$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_NAME"
 
-    if [[ -n $BOOST_LIBS ]]; then
+    if [[ -n $BOOTSTRAP_LIBS ]]; then
         echo "Lipoing library into $FRAMEWORK_INSTALL_NAME..."
         cd "$BUILDDIR"
         if [[ -n $BUILD_IOS ]]; then
