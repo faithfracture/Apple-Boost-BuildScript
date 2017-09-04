@@ -68,7 +68,7 @@ CXX_FLAGS="-std=c++11 -stdlib=libc++"
 XCODE_ROOT=`xcode-select -print-path`
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++" 
 
-THREADS="-j8"
+THREADS="-j$(sysctl -n hw.ncpu)"
 
 CURRENT_DIR=`pwd`
 SRCDIR="$CURRENT_DIR/src"
