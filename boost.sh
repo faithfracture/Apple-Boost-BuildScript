@@ -65,6 +65,8 @@ done
 # Applied to all platforms
 CXX_FLAGS="-std=c++11 -stdlib=libc++"
 
+MACOS_SDK_PATH=`xcrun --sdk macosx --show-sdk-path`
+
 XCODE_ROOT=`xcode-select -print-path`
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++" 
 
@@ -188,8 +190,6 @@ OPTIONS:
 
     --min-macos-version [num]
         Specify the minimum macOS version to target.  Defaults to $MIN_MACOS_VERSION.
-        NOTE: It seems that this is ignored for some reason, even though it is
-        (I think) being correctly passed to the build system.
 
     --no-framework
         Do not create the framework.
@@ -600,15 +600,16 @@ buildBoost_macOS()
 
     echo building Boost for macOS
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage toolset=clang \
-        --prefix="$MACOS_OUTPUT_DIR/prefix" cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" \
-        linkflags="-stdlib=libc++" link=static threading=multi \
+        --prefix="$MACOS_OUTPUT_DIR/prefix" \
+        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
+        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage \
         --prefix="$MACOS_OUTPUT_DIR/prefix" toolset=clang \
-        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS}" \
-        linkflags="-stdlib=libc++" link=static threading=multi \
+        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
+        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing macOS. Check log."; exit 1; fi
 
@@ -898,6 +899,7 @@ EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
 EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
 EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
 EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
+EXTRA_MACOS_SDK_FLAGS="-isysroot ${MACOS_SDK_PATH} -mmacosx-version-min=${MIN_MACOS_VERSION}"
 
 BOOST_VERSION2="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
