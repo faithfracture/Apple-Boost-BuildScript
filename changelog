@@ -2,6 +2,8 @@
 * Added command line options for macOS architectures
 * Added command line options for iOS architectures
 * Added '--purge' command line option
+* Set iOS architecture to arm64 only, if the minimum iOS version is 11.0
+  or newer
 
 -- 2018-02-13 --
 * Fixed enforcing the minimum macOS version

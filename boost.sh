@@ -29,20 +29,14 @@
 #
 #===============================================================================
 
+BOOST_VERSION=1.64.0
+
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
 ALL_BOOST_LIBS=\
 "atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph"\
 " graph_parallel iostreams locale log math metaparse mpi program_options python random regex"\
 " serialization signals system test thread timer type_erasure wave"
 BOOTSTRAP_LIBS=""
-
-#BUILD_IOS=
-#BUILD_TVOS=
-#BUILD_MACOS=
-#NO_CLEAN=
-#NO_FRAMEWORK=
-
-BOOST_VERSION=1.64.0
 
 MIN_IOS_VERSION=10.0
 IOS_SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
@@ -173,32 +167,34 @@ OPTIONS:
         Defaults to $IOS_SDK_VERSION
 
     --min-ios-version [num]
-        Specify the minimum iOS version to target.
-        Defaults to $MIN_IOS_VERSION.
+        Specify the minimum iOS version to target. Since iOS 11 is 64-bit only,
+        if the minimum iOS version is set to iOS 11.0 or later, iOS archs is
+        automatically set to 'arm64', unless '--ios-archs' is also specified.
+        Defaults to $MIN_IOS_VERSION
 
     --ios-archs "(archs, ...)"
         Specify the iOS architectures to build for. Space-separate list.
-        Defaults to ${IOS_ARCHS[*]}.
+        Defaults to ${IOS_ARCHS[*]}
 
     --tvos-sdk [num]
         Specify the tvOS SDK version to build with.
-        Defaults to $TVOS_SDK_VERSION.
+        Defaults to $TVOS_SDK_VERSION
 
     --min-tvos_version [num]
         Specify the minimum tvOS version to target.
-        Defaults to $MIN_TVOS_VERSION.
+        Defaults to $MIN_TVOS_VERSION
 
     --macos-sdk [num]
         Specify the macOS SDK version to build with.
-        Defaults to $MACOS_SDK_VERSION.
+        Defaults to $MACOS_SDK_VERSION
 
     --min-macos-version [num]
         Specify the minimum macOS version to target.
-        Defaults to $MIN_MACOS_VERSION.
+        Defaults to $MIN_MACOS_VERSION
 
     --macos-archs "(archs, ...)"
         Specify the macOS architectures to build for. Space-separate list.
-        Defaults to ${MACOS_ARCHS[*]}.
+        Defaults to ${MACOS_ARCHS[*]}
 
     --no-framework
         Do not create the framework.
@@ -213,7 +209,6 @@ OPTIONS:
 
     --no-clean
         Do not clean up existing build artifacts before building.
-
 
     -j | --threads [num]
         Specify the number of threads to use.
@@ -253,9 +248,6 @@ unknownParameter()
 
 parseArgs()
 {
-    CUSTOM_LIBS=
-    CUSTOM_MACOS_ARCHS=
-    CUSTOM_IOS_ARCHS=
     while [ "$1" != "" ]; do
         case $1 in
             -h | --help)
@@ -413,6 +405,8 @@ parseArgs()
 
     if [[ -n $CUSTOM_IOS_ARCHS ]]; then
         IOS_ARCHS=($CUSTOM_IOS_ARCHS)
+    elif (( $(echo "$MIN_IOS_VERSION >= 11.0" | bc -l) )); then
+        IOS_ARCHS=("arm64")
     fi
 }
 
