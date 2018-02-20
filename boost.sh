@@ -55,6 +55,7 @@ MIN_MACOS_VERSION=10.10
 MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
 
 MACOS_ARCHS="x86_64"
+IOS_ARCHS="armv7 arm64"
 
 # Applied to all platforms
 CXX_FLAGS="-std=c++11 -stdlib=libc++"
@@ -189,6 +190,10 @@ OPTIONS:
         Specify the macOS architectures to build for. Space-separate list.
         Defaults to $MACOS_ARCHS.
 
+    --ios-archs "(archs, ...)"
+        Specify the iOS architectures to build for. Space-separate list.
+        Defaults to $IOS_ARCHS.
+
     --no-framework
         Do not create the framework.
 
@@ -238,6 +243,7 @@ parseArgs()
 {
     CUSTOM_LIBS=
     CUSTOM_MACOS_ARCHS=
+    CUSTOM_IOS_ARCHS=
     while [ "$1" != "" ]; do
         case $1 in
             -h | --help)
@@ -338,6 +344,14 @@ parseArgs()
                 fi
                 ;;
 
+            --ios-archs)
+                if [ -n "$2" ]; then
+                    CUSTOM_IOS_ARCHS=$2
+                    shift;
+                else
+                    missingParameter $1
+                fi
+                ;;
 
             --clean)
                 CLEAN=1
@@ -379,6 +393,10 @@ parseArgs()
 
     if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
         MACOS_ARCHS=$CUSTOM_MACOS_ARCHS
+    fi
+
+    if [[ -n $CUSTOM_IOS_ARCHS ]]; then
+        IOS_ARCHS=$CUSTOM_IOS_ARCHS
     fi
 }
 
@@ -467,7 +485,7 @@ updateBoost()
     if [[ "$1" == "iOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${IOS_SDK_VERSION}~iphone
-: $COMPILER -arch armv7 -arch armv7s -arch arm64 $EXTRA_IOS_FLAGS
+: $COMPILER $IOS_ARCH_FLAGS $EXTRA_IOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
@@ -558,13 +576,15 @@ buildBoost_iOS()
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone \
+        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm target-os=iphone \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
         link=static stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
-    
+
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
-        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin cxxflags="${CXX_FLAGS}" architecture=arm \
+        --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
         define=_LITTLE_ENDIAN link=static install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
@@ -661,9 +681,9 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
-        mkdir -p "$IOS_BUILD_DIR/armv7/obj"
-        mkdir -p "$IOS_BUILD_DIR/armv7s/obj"
-        mkdir -p "$IOS_BUILD_DIR/arm64/obj"
+        for ARCH in $IOS_ARCHS; do
+            mkdir -p "$IOS_BUILD_DIR/$ARCH/obj"
+        done
 
         # iOS Simulator
         mkdir -p "$IOS_BUILD_DIR/i386/obj"
@@ -697,12 +717,10 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         ALL_LIBS="$ALL_LIBS libboost_$NAME.a"
 
         if [[ -n $BUILD_IOS ]]; then
-            $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                -thin armv7 -o "$IOS_BUILD_DIR/armv7/libboost_$NAME.a"
-            $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                -thin armv7s -o "$IOS_BUILD_DIR/armv7s/libboost_$NAME.a"
-            $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                -thin arm64 -o "$IOS_BUILD_DIR/arm64/libboost_$NAME.a"
+            for ARCH in $IOS_ARCHS; do
+                $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
+                    -thin $ARCH -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+            done
 
             $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
                 -thin i386 -o "$IOS_BUILD_DIR/i386/libboost_$NAME.a"
@@ -740,9 +758,9 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         echo "Decomposing libboost_${NAME}.a"
         if [[ -n $BUILD_IOS ]]; then
-            unpackArchive "$IOS_BUILD_DIR/armv7/obj" $NAME
-            unpackArchive "$IOS_BUILD_DIR/armv7s/obj" $NAME
-            unpackArchive "$IOS_BUILD_DIR/arm64/obj" $NAME
+            for ARCH in $IOS_ARCHS; do
+                unpackArchive "$IOS_BUILD_DIR/$ARCH/obj" $NAME
+            done
             unpackArchive "$IOS_BUILD_DIR/i386/obj" $NAME
             unpackArchive "$IOS_BUILD_DIR/x86_64/obj" $NAME
         fi
@@ -761,8 +779,9 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
     if [[ -n $BUILD_IOS ]]; then
-        cd "$IOS_BUILD_DIR"
-        rm */libboost.a
+        for ARCH in $IOS_ARCHS; do
+            rm "$IOS_BUILD_DIR/$ARCH/libboost.a"
+        done
     fi
     if [[ -n $BUILD_TVOS ]]; then
         cd "$TVOS_BUILD_DIR"
@@ -785,16 +804,14 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         # Boost lib names probably won't contain non-word characters any time soon, though. ;) - Jan
 
         if [[ -n $BUILD_IOS ]]; then
-            echo ...armv7
-            (cd "$IOS_BUILD_DIR/armv7"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
-            echo ...armv7s
-            (cd "$IOS_BUILD_DIR/armv7s"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
-            echo ...arm64
-            (cd "$IOS_BUILD_DIR/arm64"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            for ARCH in $IOS_ARCHS; do
+                echo ...ios-$ARCH
+                (cd "$IOS_BUILD_DIR/$ARCH"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            done
 
-            echo ...i386
+            echo ...ios-i386
             (cd "$IOS_BUILD_DIR/i386";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
-            echo ...x86_64
+            echo ...ios-x86_64
             (cd "$IOS_BUILD_DIR/x86_64";  $IOS_SIM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
         fi
 
@@ -940,6 +957,12 @@ for ARCH in $MACOS_ARCHS; do
     MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
     ((MACOS_ARCH_COUNT++))
 done
+IOS_ARCH_FLAGS=""
+IOS_ARCH_COUNT=0
+for ARCH in $IOS_ARCHS; do
+    IOS_ARCH_FLAGS="$IOS_ARCH_FLAGS -arch $ARCH"
+    ((IOS_ARCH_COUNT++))
+done
 
 format="%-20s %s\n"
 format2="%-20s %s (%u)\n"
@@ -954,6 +977,7 @@ printf "$format" "MIN_TVOS_VERSION:" "$MIN_TVOS_VERSION"
 printf "$format" "MACOS_SDK_VERSION:" "$MACOS_SDK_VERSION"
 printf "$format" "MIN_MACOS_VERSION:" "$MIN_MACOS_VERSION"
 printf "$format2" "MACOS_ARCHS:" "$MACOS_ARCHS" $MACOS_ARCH_COUNT
+printf "$format2" "IOS_ARCHS:" "$IOS_ARCHS" $IOS_ARCH_COUNT
 printf "$format" "BOOST_LIBS:" "$BOOST_LIBS"
 printf "$format" "BOOST_SRC:" "$BOOST_SRC"
 printf "$format" "IOS_BUILD_DIR:" "$IOS_BUILD_DIR"
