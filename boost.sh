@@ -454,7 +454,7 @@ updateBoost()
     if [[ "$1" == "iOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${IOS_SDK_VERSION}~iphone
-: $COMPILER -arch armv7 -arch arm64 $EXTRA_IOS_FLAGS
+: $COMPILER -arch armv7 -arch armv7s -arch arm64 $EXTRA_IOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
@@ -649,6 +649,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
         mkdir -p "$IOS_BUILD_DIR/armv7/obj"
+        mkdir -p "$IOS_BUILD_DIR/armv7s/obj"
         mkdir -p "$IOS_BUILD_DIR/arm64/obj"
 
         # iOS Simulator
@@ -685,6 +686,8 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         if [[ -n $BUILD_IOS ]]; then
             $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
                 -thin armv7 -o "$IOS_BUILD_DIR/armv7/libboost_$NAME.a"
+            $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
+                -thin armv7s -o "$IOS_BUILD_DIR/armv7s/libboost_$NAME.a"
             $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
                 -thin arm64 -o "$IOS_BUILD_DIR/arm64/libboost_$NAME.a"
 
@@ -725,6 +728,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         echo "Decomposing libboost_${NAME}.a"
         if [[ -n $BUILD_IOS ]]; then
             unpackArchive "$IOS_BUILD_DIR/armv7/obj" $NAME
+            unpackArchive "$IOS_BUILD_DIR/armv7s/obj" $NAME
             unpackArchive "$IOS_BUILD_DIR/arm64/obj" $NAME
             unpackArchive "$IOS_BUILD_DIR/i386/obj" $NAME
             unpackArchive "$IOS_BUILD_DIR/x86_64/obj" $NAME
@@ -770,6 +774,8 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         if [[ -n $BUILD_IOS ]]; then
             echo ...armv7
             (cd "$IOS_BUILD_DIR/armv7"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
+            echo ...armv7s
+            (cd "$IOS_BUILD_DIR/armv7s"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             echo ...arm64
             (cd "$IOS_BUILD_DIR/arm64"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
 
