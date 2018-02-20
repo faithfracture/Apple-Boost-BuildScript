@@ -36,12 +36,11 @@ ALL_BOOST_LIBS=\
 " serialization signals system test thread timer type_erasure wave"
 BOOTSTRAP_LIBS=""
 
-BUILD_IOS=
-BUILD_TVOS=
-BUILD_MACOS=
-CLEAN=
-NO_CLEAN=
-NO_FRAMEWORK=
+#BUILD_IOS=
+#BUILD_TVOS=
+#BUILD_MACOS=
+#NO_CLEAN=
+#NO_FRAMEWORK=
 
 BOOST_VERSION=1.64.0
 
@@ -54,8 +53,8 @@ TVOS_SDK_VERSION=`xcrun --sdk appletvos --show-sdk-version`
 MIN_MACOS_VERSION=10.10
 MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
 
-MACOS_ARCHS="x86_64"
-IOS_ARCHS="armv7 arm64"
+MACOS_ARCHS=("x86_64")
+IOS_ARCHS=("armv7 arm64")
 
 # Applied to all platforms
 CXX_FLAGS="-std=c++11 -stdlib=libc++"
@@ -107,7 +106,8 @@ OPTIONS:
         Build for the tvOS platform.
     
     --boost-version [num]
-        Specify which version of Boost to build. Defaults to $BOOST_VERSION.
+        Specify which version of Boost to build.
+        Defaults to $BOOST_VERSION.
 
     --boost-libs "{all|none|(lib, ...)}"
         Specify which libraries to build. Space-separate list. Pass 'all' to
@@ -169,30 +169,36 @@ OPTIONS:
         the time to figure it out now.
 
     --ios-sdk [num]
-        Specify the iOS SDK version to build with. Defaults to $IOS_SDK_VERSION.
+        Specify the iOS SDK version to build with.
+        Defaults to $IOS_SDK_VERSION
 
     --min-ios-version [num]
-        Specify the minimum iOS version to target.  Defaults to $MIN_IOS_VERSION.
-
-    --tvos-sdk [num]
-        Specify the tvOS SDK version to build with. Defaults to $TVOS_SDK_VERSION.
-
-    --min-tvos_version [num]
-        Specify the minimum tvOS version to target. Defaults to $MIN_TVOS_VERSION.
-
-    --macos-sdk [num]
-        Specify the macOS SDK version to build with. Defaults to $MACOS_SDK_VERSION.
-
-    --min-macos-version [num]
-        Specify the minimum macOS version to target.  Defaults to $MIN_MACOS_VERSION.
-
-    --macos-archs "(archs, ...)"
-        Specify the macOS architectures to build for. Space-separate list.
-        Defaults to $MACOS_ARCHS.
+        Specify the minimum iOS version to target.
+        Defaults to $MIN_IOS_VERSION.
 
     --ios-archs "(archs, ...)"
         Specify the iOS architectures to build for. Space-separate list.
-        Defaults to $IOS_ARCHS.
+        Defaults to ${IOS_ARCHS[*]}.
+
+    --tvos-sdk [num]
+        Specify the tvOS SDK version to build with.
+        Defaults to $TVOS_SDK_VERSION.
+
+    --min-tvos_version [num]
+        Specify the minimum tvOS version to target.
+        Defaults to $MIN_TVOS_VERSION.
+
+    --macos-sdk [num]
+        Specify the macOS SDK version to build with.
+        Defaults to $MACOS_SDK_VERSION.
+
+    --min-macos-version [num]
+        Specify the minimum macOS version to target.
+        Defaults to $MIN_MACOS_VERSION.
+
+    --macos-archs "(archs, ...)"
+        Specify the macOS architectures to build for. Space-separate list.
+        Defaults to ${MACOS_ARCHS[*]}.
 
     --no-framework
         Do not create the framework.
@@ -201,11 +207,17 @@ OPTIONS:
         Just clean up build artifacts, but don't actually build anything.
         (all other parameters are ignored)
 
+    --purge
+        Removes everything (build directory, src, Boost tarball, etc.).
+        Similar to --clean, but more thorough.
+
     --no-clean
         Do not clean up existing build artifacts before building.
 
+
     -j | --threads [num]
-        Specify the number of threads to use. Defaults to $THREADS
+        Specify the number of threads to use.
+        Defaults to $THREADS
 
 EOF
 }
@@ -299,6 +311,15 @@ parseArgs()
                 fi
                 ;;
 
+            --ios-archs)
+                if [ -n "$2" ]; then
+                    CUSTOM_IOS_ARCHS=$2
+                    shift;
+                else
+                    missingParameter $1
+                fi
+                ;;
+
             --tvos-sdk)
                 if [ -n $2 ]; then
                     TVOS_SDK_VERSION=$2
@@ -344,17 +365,12 @@ parseArgs()
                 fi
                 ;;
 
-            --ios-archs)
-                if [ -n "$2" ]; then
-                    CUSTOM_IOS_ARCHS=$2
-                    shift;
-                else
-                    missingParameter $1
-                fi
-                ;;
-
             --clean)
                 CLEAN=1
+                ;;
+
+            --purge)
+                PURGE=1
                 ;;
 
             --no-clean)
@@ -392,11 +408,11 @@ parseArgs()
     fi
 
     if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
-        MACOS_ARCHS=$CUSTOM_MACOS_ARCHS
+        MACOS_ARCHS=($CUSTOM_MACOS_ARCHS)
     fi
 
     if [[ -n $CUSTOM_IOS_ARCHS ]]; then
-        IOS_ARCHS=$CUSTOM_IOS_ARCHS
+        IOS_ARCHS=($CUSTOM_IOS_ARCHS)
     fi
 }
 
@@ -681,7 +697,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
-        for ARCH in $IOS_ARCHS; do
+        for ARCH in ${IOS_ARCHS[@]}; do
             mkdir -p "$IOS_BUILD_DIR/$ARCH/obj"
         done
 
@@ -700,7 +716,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     if [[ -n $BUILD_MACOS ]]; then
         # macOS
-        for ARCH in $MACOS_ARCHS; do
+        for ARCH in ${MACOS_ARCHS[@]}; do
             mkdir -p "$MACOS_BUILD_DIR/$ARCH/obj"
         done
     fi
@@ -717,7 +733,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         ALL_LIBS="$ALL_LIBS libboost_$NAME.a"
 
         if [[ -n $BUILD_IOS ]]; then
-            for ARCH in $IOS_ARCHS; do
+            for ARCH in ${IOS_ARCHS[@]}; do
                 $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
                     -thin $ARCH -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
             done
@@ -737,11 +753,11 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
-            if (( $MACOS_ARCH_COUNT == 1 )); then
+            if (( ${#MACOS_ARCHS[@]} == 1 )); then
                 cp "macos-build/stage/lib/libboost_$NAME.a" \
                     "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
             else
-                for ARCH in $MACOS_ARCHS; do
+                for ARCH in ${MACOS_ARCHS[@]}; do
                     $MACOS_DEV_CMD lipo "macos-build/stage/lib/libboost_$NAME.a" \
                         -thin $ARCH -o "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
                 done
@@ -758,7 +774,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         echo "Decomposing libboost_${NAME}.a"
         if [[ -n $BUILD_IOS ]]; then
-            for ARCH in $IOS_ARCHS; do
+            for ARCH in ${IOS_ARCHS[@]}; do
                 unpackArchive "$IOS_BUILD_DIR/$ARCH/obj" $NAME
             done
             unpackArchive "$IOS_BUILD_DIR/i386/obj" $NAME
@@ -771,7 +787,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
-            for ARCH in $MACOS_ARCHS; do
+            for ARCH in ${MACOS_ARCHS[@]}; do
                 unpackArchive "$MACOS_BUILD_DIR/$ARCH/obj" $NAME
             done
         fi
@@ -779,7 +795,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
     if [[ -n $BUILD_IOS ]]; then
-        for ARCH in $IOS_ARCHS; do
+        for ARCH in ${IOS_ARCHS[@]}; do
             rm "$IOS_BUILD_DIR/$ARCH/libboost.a"
         done
     fi
@@ -788,7 +804,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         rm */libboost.a
     fi
     if [[ -n $BUILD_MACOS ]]; then
-        for ARCH in $MACOS_ARCHS; do
+        for ARCH in ${MACOS_ARCHS[@]}; do
             rm "$MACOS_BUILD_DIR/$ARCH/libboost.a"
         done
     fi
@@ -804,7 +820,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         # Boost lib names probably won't contain non-word characters any time soon, though. ;) - Jan
 
         if [[ -n $BUILD_IOS ]]; then
-            for ARCH in $IOS_ARCHS; do
+            for ARCH in ${IOS_ARCHS[@]}; do
                 echo ...ios-$ARCH
                 (cd "$IOS_BUILD_DIR/$ARCH"; $IOS_ARM_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             done
@@ -823,7 +839,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
-            for ARCH in $MACOS_ARCHS; do
+            for ARCH in ${MACOS_ARCHS[@]}; do
                 echo ...macos-$ARCH
                 (cd "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.a obj/$NAME/*.o; )
             done
@@ -951,21 +967,18 @@ IOSLOG="> $IOS_OUTPUT_DIR/iphone.log 2>&1"
 IOS_FRAMEWORK_DIR="$IOS_OUTPUT_DIR/framework"
 TVOS_FRAMEWORK_DIR="$TVOS_OUTPUT_DIR/framework"
 MACOS_FRAMEWORK_DIR="$MACOS_OUTPUT_DIR/framework"
+
 MACOS_ARCH_FLAGS=""
-MACOS_ARCH_COUNT=0
-for ARCH in $MACOS_ARCHS; do
+for ARCH in ${MACOS_ARCHS[@]}; do
     MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
-    ((MACOS_ARCH_COUNT++))
 done
+
 IOS_ARCH_FLAGS=""
-IOS_ARCH_COUNT=0
-for ARCH in $IOS_ARCHS; do
+for ARCH in ${IOS_ARCHS[@]}; do
     IOS_ARCH_FLAGS="$IOS_ARCH_FLAGS -arch $ARCH"
-    ((IOS_ARCH_COUNT++))
 done
 
 format="%-20s %s\n"
-format2="%-20s %s (%u)\n"
 printf "$format" "BUILD_IOS:" $( [[ -n $BUILD_IOS ]] && echo "YES" || echo "NO")
 printf "$format" "BUILD_TVOS:" $( [[ -n $BUILD_TVOS ]] && echo "YES" || echo "NO")
 printf "$format" "BUILD_MACOS:" $( [[ -n $BUILD_MACOS ]] && echo "YES" || echo "NO")
@@ -976,8 +989,8 @@ printf "$format" "TVOS_SDK_VERSION:" "$TVOS_SDK_VERSION"
 printf "$format" "MIN_TVOS_VERSION:" "$MIN_TVOS_VERSION"
 printf "$format" "MACOS_SDK_VERSION:" "$MACOS_SDK_VERSION"
 printf "$format" "MIN_MACOS_VERSION:" "$MIN_MACOS_VERSION"
-printf "$format2" "MACOS_ARCHS:" "$MACOS_ARCHS" $MACOS_ARCH_COUNT
-printf "$format2" "IOS_ARCHS:" "$IOS_ARCHS" $IOS_ARCH_COUNT
+printf "$format" "MACOS_ARCHS:" "${MACOS_ARCHS[*]}"
+printf "$format" "IOS_ARCHS:" "${IOS_ARCHS[*]}"
 printf "$format" "BOOST_LIBS:" "$BOOST_LIBS"
 printf "$format" "BOOST_SRC:" "$BOOST_SRC"
 printf "$format" "IOS_BUILD_DIR:" "$IOS_BUILD_DIR"
@@ -988,12 +1001,21 @@ printf "$format" "XCODE_ROOT:" "$XCODE_ROOT"
 printf "$format" "THREADS:" "$THREADS"
 echo
 
-if [ -n "$CLEAN" ]; then
+if [[ -n "$PURGE" ]]; then
+    echo "Purging everything..."
+    rm -r boost_*.tar.bz2
+    rm -r build
+    rm -r src
+    echo "Done"
+    exit 0
+fi
+
+if [[ -n $CLEAN ]]; then
     cleanup
     exit
 fi
 
-if [ -z $NO_CLEAN ]; then
+if [[ -z $NO_CLEAN ]]; then
     cleanup
 fi
 
@@ -1019,7 +1041,7 @@ fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
 
-if [ -z $NO_FRAMEWORK ]; then
+if [[ -z $NO_FRAMEWORK ]]; then
     if [[ -n $BUILD_IOS ]]; then
         buildFramework "$IOS_FRAMEWORK_DIR" "$IOS_OUTPUT_DIR"
     fi

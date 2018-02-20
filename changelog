@@ -1,6 +1,7 @@
 -- 2018-02-20 --
 * Added command line options for macOS architectures
 * Added command line options for iOS architectures
+* Added '--purge' command line option
 
 -- 2018-02-13 --
 * Fixed enforcing the minimum macOS version
