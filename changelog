@@ -1,3 +1,10 @@
+-- 2018-02-20 --
+* Added command line options for macOS architectures
+* Added command line options for iOS architectures
+
+-- 2018-02-13 --
+* Fixed enforcing the minimum macOS version
+
 -- 2017-02-24 --
 * Updated default Boost version to 1.63.0
 * Changed min iOS version to 10.0
