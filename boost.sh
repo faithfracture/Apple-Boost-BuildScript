@@ -55,12 +55,6 @@ MIN_MACOS_VERSION=10.10
 MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
 
 MACOS_ARCHS="x86_64"
-MACOS_ARCH_COUNT=0
-MACOS_ARCH_FLAGS=""
-for ARCH in $MACOS_ARCHS; do
-    MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
-    ((MACOS_ARCH_COUNT++))
-done
 
 # Applied to all platforms
 CXX_FLAGS="-std=c++11 -stdlib=libc++"
@@ -191,6 +185,10 @@ OPTIONS:
     --min-macos-version [num]
         Specify the minimum macOS version to target.  Defaults to $MIN_MACOS_VERSION.
 
+    --macos-archs "(archs, ...)"
+        Specify the macOS architectures to build for. Space-separate list.
+        Defaults to $MACOS_ARCHS.
+
     --no-framework
         Do not create the framework.
 
@@ -239,6 +237,7 @@ unknownParameter()
 parseArgs()
 {
     CUSTOM_LIBS=
+    CUSTOM_MACOS_ARCHS=
     while [ "$1" != "" ]; do
         case $1 in
             -h | --help)
@@ -330,6 +329,16 @@ parseArgs()
                 fi
                 ;;
 
+            --macos-archs)
+                if [ -n "$2" ]; then
+                    CUSTOM_MACOS_ARCHS=$2
+                    shift;
+                else
+                    missingParameter $1
+                fi
+                ;;
+
+
             --clean)
                 CLEAN=1
                 ;;
@@ -366,6 +375,10 @@ parseArgs()
             CUSTOM_LIBS=$ALL_BOOST_LIBS
         fi
         BOOST_LIBS=$CUSTOM_LIBS
+    fi
+
+    if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
+        MACOS_ARCHS=$CUSTOM_MACOS_ARCHS
     fi
 }
 
@@ -921,6 +934,12 @@ IOSLOG="> $IOS_OUTPUT_DIR/iphone.log 2>&1"
 IOS_FRAMEWORK_DIR="$IOS_OUTPUT_DIR/framework"
 TVOS_FRAMEWORK_DIR="$TVOS_OUTPUT_DIR/framework"
 MACOS_FRAMEWORK_DIR="$MACOS_OUTPUT_DIR/framework"
+MACOS_ARCH_FLAGS=""
+MACOS_ARCH_COUNT=0
+for ARCH in $MACOS_ARCHS; do
+    MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
+    ((MACOS_ARCH_COUNT++))
+done
 
 format="%-20s %s\n"
 format2="%-20s %s (%u)\n"
