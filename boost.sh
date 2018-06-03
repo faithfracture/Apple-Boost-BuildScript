@@ -199,6 +199,9 @@ OPTIONS:
     --no-framework
         Do not create the framework.
 
+    --universal
+        Create universal static library for iOS.
+
     --clean
         Just clean up build artifacts, but don't actually build anything.
         (all other parameters are ignored)
@@ -245,7 +248,6 @@ unknownParameter()
     fi
     die
 }
-
 parseArgs()
 {
     while [ "$1" != "" ]; do
@@ -355,6 +357,10 @@ parseArgs()
                 else
                     missingParameter $1
                 fi
+                ;;
+
+            --universal)
+                UNIVERSAL=1
                 ;;
 
             --clean)
@@ -841,6 +847,38 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     done
 }
 
+buildUniversalStatic()
+{
+    if [[ -n $UNIVERSAL ]]; then
+        if [[ -n $BUILD_IOS ]]; then
+            echo "Creating universal static library..."
+            mkdir -p "$IOS_BUILD_DIR/universal"
+
+            for NAME in $BOOTSTRAP_LIBS; do
+                if [ "$NAME" == "test" ]; then
+                    NAME="unit_test_framework"
+                fi
+
+                ARCH_FILES=""
+                for ARCH in ${IOS_ARCHS[@]}; do
+                    ARCH_FILES+=" $IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                done
+                # Ideally IOS_ARCHS contains i386 and x86_64 and simulator build steps are not treated out of band
+                if [ -f $IOS_BUILD_DIR/i386/libboost_$NAME.a ]; then
+                    ARCH_FILES+=" $IOS_BUILD_DIR/i386/libboost_$NAME.a"
+                fi
+                if [ -f $IOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
+                    ARCH_FILES+=" $IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+                fi
+                if [[ ${ARCH_FILES[@]} ]]; then
+                    echo "... $NAME"
+                    $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$IOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+                fi
+            done
+        fi
+    fi
+}
+
 #===============================================================================
 buildFramework()
 {
@@ -1034,6 +1072,7 @@ if [[ -n $BUILD_MACOS ]]; then
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
+buildUniversalStatic
 
 if [[ -z $NO_FRAMEWORK ]]; then
     if [[ -n $BUILD_IOS ]]; then
