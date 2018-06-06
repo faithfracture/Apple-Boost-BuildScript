@@ -1,3 +1,6 @@
+-- 2018-06-06 --
+* Added a CLI flag to place framework headers in a 'boost' root directory.
+
 -- 2018-02-20 --
 * Added command line options for macOS architectures
 * Added command line options for iOS architectures

@@ -202,6 +202,11 @@ OPTIONS:
     --universal
         Create universal static library for iOS.
 
+    --framework-header-root
+        Place headers in a 'boost' root directory in the framework rather than
+        directly in the 'Headers' directory.
+        Added for compatibility with projects that expect this structure.
+
     --clean
         Just clean up build artifacts, but don't actually build anything.
         (all other parameters are ignored)
@@ -377,6 +382,10 @@ parseArgs()
 
             --no-framework)
                 NO_FRAMEWORK=1
+                ;;
+
+            --framework-header-root)
+                HEADER_ROOT=1
                 ;;
 
             -j | --threads)
@@ -898,17 +907,22 @@ buildFramework()
     echo "Framework: Building $FRAMEWORK_BUNDLE from $BUILDDIR..."
 
     rm -rf "$FRAMEWORK_BUNDLE"
+    if [[ -n $HEADER_ROOT ]]; then
+        FRAMEWORK_HEADERS="/Headers/boost/"
+    else
+        FRAMEWORK_HEADERS="/Headers/"
+    fi
 
     echo "Framework: Setting up directories..."
     mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/Resources"
-    mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/Headers"
+    mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_HEADERS"
     mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/Documentation"
 
     echo "Framework: Creating symlinks..."
-    ln -s "$FRAMEWORK_VERSION"               "$FRAMEWORK_BUNDLE/Versions/Current"
-    ln -s "Versions/Current/Headers"         "$FRAMEWORK_BUNDLE/Headers"
-    ln -s "Versions/Current/Resources"       "$FRAMEWORK_BUNDLE/Resources"
-    ln -s "Versions/Current/Documentation"   "$FRAMEWORK_BUNDLE/Documentation"
+    ln -s "$FRAMEWORK_VERSION" "$FRAMEWORK_BUNDLE/Versions/Current"
+    ln -s "Versions/Current/Headers" "$FRAMEWORK_BUNDLE/Headers"
+    ln -s "Versions/Current/Resources" "$FRAMEWORK_BUNDLE/Resources"
+    ln -s "Versions/Current/Documentation" "$FRAMEWORK_BUNDLE/Documentation"
     ln -s "Versions/Current/$FRAMEWORK_NAME" "$FRAMEWORK_BUNDLE/$FRAMEWORK_NAME"
 
     FRAMEWORK_INSTALL_NAME="$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_NAME"
@@ -928,8 +942,7 @@ buildFramework()
     fi
 
     echo "Framework: Copying includes..."
-    cd "$PREFIXDIR/include/boost"
-    cp -r * "$FRAMEWORK_BUNDLE/Headers/"
+    cp -r "$PREFIXDIR/include/boost/"* "$FRAMEWORK_BUNDLE/$FRAMEWORK_HEADERS"
 
     echo "Framework: Creating plist..."
     cat > "$FRAMEWORK_BUNDLE/Resources/Info.plist" <<EOF
