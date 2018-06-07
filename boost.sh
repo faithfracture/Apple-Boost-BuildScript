@@ -200,7 +200,7 @@ OPTIONS:
         Do not create the framework.
 
     --universal
-        Create universal static library for iOS.
+        Create universal FAT binary.
 
     --framework-header-root
         Place headers in a 'boost' root directory in the framework rather than
@@ -856,35 +856,54 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     done
 }
 
-buildUniversalStatic()
+buildUniversal()
 {
-    if [[ -n $UNIVERSAL ]]; then
-        if [[ -n $BUILD_IOS ]]; then
-            echo "Creating universal static library..."
-            mkdir -p "$IOS_BUILD_DIR/universal"
+        echo "Creating universal library..."
+    if [[ -n $BUILD_IOS ]]; then
+        mkdir -p "$IOS_BUILD_DIR/universal"
 
-            for NAME in $BOOTSTRAP_LIBS; do
-                if [ "$NAME" == "test" ]; then
-                    NAME="unit_test_framework"
-                fi
+        for NAME in $BOOTSTRAP_LIBS; do
+            if [ "$NAME" == "test" ]; then
+                NAME="unit_test_framework"
+            fi
 
-                ARCH_FILES=""
-                for ARCH in ${IOS_ARCHS[@]}; do
-                    ARCH_FILES+=" $IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-                done
-                # Ideally IOS_ARCHS contains i386 and x86_64 and simulator build steps are not treated out of band
-                if [ -f $IOS_BUILD_DIR/i386/libboost_$NAME.a ]; then
-                    ARCH_FILES+=" $IOS_BUILD_DIR/i386/libboost_$NAME.a"
-                fi
-                if [ -f $IOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
-                    ARCH_FILES+=" $IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
-                fi
-                if [[ ${ARCH_FILES[@]} ]]; then
-                    echo "... $NAME"
-                    $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$IOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
-                fi
+            ARCH_FILES=""
+            for ARCH in ${IOS_ARCHS[@]}; do
+                ARCH_FILES+=" $IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
             done
-        fi
+            # Ideally IOS_ARCHS contains i386 and x86_64 and simulator build steps are not treated out of band
+            if [ -f $IOS_BUILD_DIR/i386/libboost_$NAME.a ]; then
+                ARCH_FILES+=" $IOS_BUILD_DIR/i386/libboost_$NAME.a"
+            fi
+            if [ -f $IOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
+                ARCH_FILES+=" $IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            fi
+            if [[ ${ARCH_FILES[@]} ]]; then
+                echo "... $NAME"
+                $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$IOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+            fi
+        done
+    fi
+    if [[ -n $BUILD_TVOS ]]; then
+        mkdir -p "$TVOS_BUILD_DIR/universal"
+
+        for NAME in $BOOTSTRAP_LIBS; do
+            if [ "$NAME" == "test" ]; then
+                NAME="unit_test_framework"
+            fi
+
+            ARCH_FILES=""
+            if [ -f $TVOS_BUILD_DIR/arm64/libboost_$NAME.a ]; then
+                ARCH_FILES+=" $TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
+            fi
+            if [ -f $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
+                ARCH_FILES+=" $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            fi
+            if [[ ${ARCH_FILES[@]} ]]; then
+                echo "... $NAME"
+                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$TVOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+            fi
+        done
     fi
 }
 
@@ -1085,7 +1104,9 @@ if [[ -n $BUILD_MACOS ]]; then
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
-buildUniversalStatic
+if [[ -n $UNIVERSAL ]]; then
+    buildUniversal
+fi
 
 if [[ -z $NO_FRAMEWORK ]]; then
     if [[ -n $BUILD_IOS ]]; then
