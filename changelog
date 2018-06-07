@@ -1,3 +1,6 @@
+-- 2018-06-07 --
+* Added a CLI flag to create universal FAT binaries for iOS and tvOS.
+
 -- 2018-06-06 --
 * Added a CLI flag to place framework headers in a 'boost' root directory.
 
