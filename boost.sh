@@ -905,6 +905,30 @@ buildUniversal()
             fi
         done
     fi
+	# Note caller needs to manually pass in --macos-archs "i386 x86_64" (in addition to --universal)
+	# to build 32 bit and 64 bit fat.
+    if [[ -n $BUILD_MACOS ]]; then
+        mkdir -p "$MACOS_BUILD_DIR/universal"
+
+        cd "$MACOS_BUILD_DIR"
+        for NAME in $BOOTSTRAP_LIBS; do
+            if [ "$NAME" == "test" ]; then
+                NAME="unit_test_framework"
+            fi
+
+            ARCH_FILES=""
+            if [ -f "i386/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" i386/libboost_$NAME.a"
+            fi
+            if [ -f "x86_64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" x86_64/libboost_$NAME.a"
+            fi
+            if [[ ${ARCH_FILES[@]} ]]; then
+                echo "... $NAME"
+                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+            fi
+        done
+    fi
 }
 
 #===============================================================================
