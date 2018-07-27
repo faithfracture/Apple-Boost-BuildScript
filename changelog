@@ -1,3 +1,7 @@
+-- 2018-07-27 --
+* Updated Boost version to 1.67.0
+* Fixed tvOS build
+
 -- 2018-06-07 --
 * Added a CLI flag to create universal FAT binaries for iOS and tvOS.
 
