@@ -825,7 +825,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         echo "Archiving $NAME"
 
-        # The obj/$NAME/*.o below should all be quotet, but I couldn't figure out how to do that elegantly.
+        # The obj/$NAME/*.o below should all be quoted, but I couldn't figure out how to do that elegantly.
         # Boost lib names probably won't contain non-word characters any time soon, though. ;) - Jan
 
         if [[ -n $BUILD_IOS ]]; then
@@ -862,6 +862,7 @@ buildUniversal()
     if [[ -n $BUILD_IOS ]]; then
         mkdir -p "$IOS_BUILD_DIR/universal"
 
+        cd "$IOS_BUILD_DIR"
         for NAME in $BOOTSTRAP_LIBS; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
@@ -869,39 +870,40 @@ buildUniversal()
 
             ARCH_FILES=""
             for ARCH in ${IOS_ARCHS[@]}; do
-                ARCH_FILES+=" $IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                ARCH_FILES+=" $ARCH/libboost_$NAME.a"
             done
             # Ideally IOS_ARCHS contains i386 and x86_64 and simulator build steps are not treated out of band
-            if [ -f $IOS_BUILD_DIR/i386/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $IOS_BUILD_DIR/i386/libboost_$NAME.a"
+            if [ -f "i386/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" i386/libboost_$NAME.a"
             fi
-            if [ -f $IOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            if [ -f "x86_64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" x86_64/libboost_$NAME.a"
             fi
             if [[ ${ARCH_FILES[@]} ]]; then
                 echo "... $NAME"
-                $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$IOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+                $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "universal/libboost_$NAME.a" || abort "Lipo $1 failed"
             fi
         done
     fi
     if [[ -n $BUILD_TVOS ]]; then
         mkdir -p "$TVOS_BUILD_DIR/universal"
 
+        cd "$TVOS_BUILD_DIR"
         for NAME in $BOOTSTRAP_LIBS; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
 
             ARCH_FILES=""
-            if [ -f $TVOS_BUILD_DIR/arm64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
+            if [ -f "arm64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" arm64/libboost_$NAME.a"
             fi
-            if [ -f $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            if [ -f "x86_64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" x86_64/libboost_$NAME.a"
             fi
             if [[ ${ARCH_FILES[@]} ]]; then
                 echo "... $NAME"
-                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$TVOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "universal/libboost_$NAME.a" || abort "Lipo $1 failed"
             fi
         done
     fi
