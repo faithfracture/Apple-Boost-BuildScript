@@ -479,7 +479,7 @@ unpackBoost()
     echo Unpacking boost into "$SRCDIR"...
 
     [ -d "$SRCDIR" ]    || mkdir -p "$SRCDIR"
-    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
+    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xjf "$BOOST_TARBALL" )
     [ -d "$BOOST_SRC" ] && echo "    ...unpacked as $BOOST_SRC"
 
     doneSection
