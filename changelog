@@ -1,3 +1,6 @@
+-- 2018-08-15 --
+* Fixed universal build to allow for build directories that contain spaces
+
 -- 2018-06-07 --
 * Added a CLI flag to create universal FAT binaries for iOS and tvOS.
 
