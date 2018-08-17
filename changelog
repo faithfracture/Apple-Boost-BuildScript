@@ -1,3 +1,6 @@
+-- 2018-08-15 --
+* Fixed universal build to allow for build directories that contain spaces
+
 -- 2018-08-14 --
 * Fixed I'm stupid and forgot how line contiuations work in Bash...
 
