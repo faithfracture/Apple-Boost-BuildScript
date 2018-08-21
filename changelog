@@ -1,3 +1,13 @@
+-- 2018-08-21 --
+* Disabled hiding symbols & inlines
+  - This was causing clang to throw warnings, regardless of the project's
+    visibility settings. I don't see any reason it needs to be enabled
+	anyways.
+
+	If this causes a problem for your project let me know and I will add a
+	CLI flag to optionally add them back in (or just do it yourself &
+	submit a PR!)
+	
 -- 2018-08-15 --
 * Fixed universal build to allow for build directories that contain spaces
 

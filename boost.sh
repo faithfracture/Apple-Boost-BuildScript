@@ -1013,7 +1013,6 @@ fi
 
 # Must set these after parseArgs to fill in overriden values
 EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG"`
-    `" -fvisibility=hidden -fvisibility-inlines-hidden"`
     `" -Wno-unused-local-typedef -fembed-bitcode -Wno-nullability-completeness"
 EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
 EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
