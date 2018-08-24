@@ -1,3 +1,6 @@
+-- 2018-08-24 --
+* Fixed incorrect ordering of params for tar command
+
 -- 2018-08-21 --
 * Disabled hiding symbols & inlines
   - This was causing clang to throw warnings, regardless of the project's
