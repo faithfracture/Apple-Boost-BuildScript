@@ -29,7 +29,7 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.64.0
+BOOST_VERSION=1.67.0
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
 ALL_BOOST_LIBS=\
@@ -43,17 +43,18 @@ IOS_SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
 
 MIN_TVOS_VERSION=10.0
 TVOS_SDK_VERSION=`xcrun --sdk appletvos --show-sdk-version`
+TVOS_SDK_PATH=`xcrun --sdk appletvos --show-sdk-path`
+TVOSSIM_SDK_PATH=`xcrun --sdk appletvsimulator --show-sdk-path`
 
 MIN_MACOS_VERSION=10.10
 MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
+MACOS_SDK_PATH=`xcrun --sdk macosx --show-sdk-path`
 
 MACOS_ARCHS=("x86_64")
 IOS_ARCHS=("armv7 arm64")
 
 # Applied to all platforms
-CXX_FLAGS="-std=c++11 -stdlib=libc++"
-
-MACOS_SDK_PATH=`xcrun --sdk macosx --show-sdk-path`
+CXX_FLAGS="-std=c++14 -stdlib=libc++"
 
 XCODE_ROOT=`xcode-select -print-path`
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++" 
@@ -483,7 +484,7 @@ unpackBoost()
     echo Unpacking boost into "$SRCDIR"...
 
     [ -d "$SRCDIR" ]    || mkdir -p "$SRCDIR"
-    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xfj "$BOOST_TARBALL" )
+    [ -d "$BOOST_SRC" ] || ( cd "$SRCDIR"; tar xjf "$BOOST_TARBALL" )
     [ -d "$BOOST_SRC" ] && echo "    ...unpacked as $BOOST_SRC"
 
     doneSection
@@ -531,12 +532,12 @@ EOF
     if [[ "$1" == "tvOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${TVOS_SDK_VERSION}~appletv
-: $COMPILER -arch arm64 $EXTRA_TVOS_FLAGS -I${XCODE_ROOT}/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS${TVOS_SDK_VERSION}.sdk/usr/include
+: $COMPILER -arch arm64 $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH -I $TVOS_SDK_PATH
 : <striper> <root>$XCODE_ROOT/Platforms/AppleTVOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
 using darwin : ${TVOS_SDK_VERSION}~appletvsim
-: $COMPILER -arch x86_64 $EXTRA_TVOS_FLAGS -I${XCODE_ROOT}/Platforms/AppleTVSimulator.platform/Developer/SDKs/AppleTVSimulator${TVOS_SDK_VERSION}.sdk/usr/include
+: $COMPILER -arch x86_64 $EXTRA_TVOS_FLAGS -isysroot $TVOSSIM_SDK_PATH -I $TVOSSIM_SDK_PATH
 : <striper> <root>$XCODE_ROOT/Platforms/AppleTVSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
@@ -547,7 +548,7 @@ EOF
     if [[ "$1" == "macOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${MACOS_SDK_VERSION}
-: $COMPILER $MACOS_ARCH_FLAGS $EXTRA_MACOS_FLAGS
+: $COMPILER $MACOS_ARCH_FLAGS $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH
 : <striper> <root>$XCODE_ROOT/Platforms/MacOSX.platform/Developer
 : <architecture>x86 <target-os>darwin
 ;
@@ -759,11 +760,11 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
-            $TVOS_ARM_DEV_CMD lipo "appletv-build/stage/lib/libboost_$NAME.a" \
-                -thin arm64 -o "$TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
+            cp "appletv-build/stage/lib/libboost_$NAME.a" \
+                "$TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
 
-            $TVOS_SIM_DEV_CMD lipo "appletvsim-build/stage/lib/libboost_$NAME.a" \
-                -thin x86_64 -o "$TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            cp "appletvsim-build/stage/lib/libboost_$NAME.a" \
+                "$TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
@@ -830,7 +831,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         echo "Archiving $NAME"
 
-        # The obj/$NAME/*.o below should all be quotet, but I couldn't figure out how to do that elegantly.
+        # The obj/$NAME/*.o below should all be quoted, but I couldn't figure out how to do that elegantly.
         # Boost lib names probably won't contain non-word characters any time soon, though. ;) - Jan
 
         if [[ -n $BUILD_IOS ]]; then
@@ -867,6 +868,7 @@ buildUniversal()
     if [[ -n $BUILD_IOS ]]; then
         mkdir -p "$IOS_BUILD_DIR/universal"
 
+        cd "$IOS_BUILD_DIR"
         for NAME in $BOOTSTRAP_LIBS; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
@@ -874,39 +876,40 @@ buildUniversal()
 
             ARCH_FILES=""
             for ARCH in ${IOS_ARCHS[@]}; do
-                ARCH_FILES+=" $IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                ARCH_FILES+=" $ARCH/libboost_$NAME.a"
             done
             # Ideally IOS_ARCHS contains i386 and x86_64 and simulator build steps are not treated out of band
-            if [ -f $IOS_BUILD_DIR/i386/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $IOS_BUILD_DIR/i386/libboost_$NAME.a"
+            if [ -f "i386/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" i386/libboost_$NAME.a"
             fi
-            if [ -f $IOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $IOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            if [ -f "x86_64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" x86_64/libboost_$NAME.a"
             fi
             if [[ ${ARCH_FILES[@]} ]]; then
                 echo "... $NAME"
-                $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$IOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+                $IOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "universal/libboost_$NAME.a" || abort "Lipo $1 failed"
             fi
         done
     fi
     if [[ -n $BUILD_TVOS ]]; then
         mkdir -p "$TVOS_BUILD_DIR/universal"
 
+        cd "$TVOS_BUILD_DIR"
         for NAME in $BOOTSTRAP_LIBS; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
 
             ARCH_FILES=""
-            if [ -f $TVOS_BUILD_DIR/arm64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
+            if [ -f "arm64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" arm64/libboost_$NAME.a"
             fi
-            if [ -f $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a ]; then
-                ARCH_FILES+=" $TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+            if [ -f "x86_64/libboost_$NAME.a" ]; then
+                ARCH_FILES+=" x86_64/libboost_$NAME.a"
             fi
             if [[ ${ARCH_FILES[@]} ]]; then
                 echo "... $NAME"
-                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "$TVOS_BUILD_DIR/universal/libboost_$NAME.a" || abort "Lipo $1 failed"
+                $TVOS_ARM_DEV_CMD lipo -create $ARCH_FILES -o "universal/libboost_$NAME.a" || abort "Lipo $1 failed"
             fi
         done
     fi
@@ -1036,9 +1039,8 @@ fi
 # Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
 
 # Must set these after parseArgs to fill in overriden values
-EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG \
-    -fvisibility=hidden -fvisibility-inlines-hidden \
-    -Wno-unused-local-typedef -fembed-bitcode"
+EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG"`
+    `" -Wno-unused-local-typedef -fembed-bitcode -Wno-nullability-completeness"
 EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
 EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
 EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
@@ -1077,8 +1079,11 @@ printf "$format" "BOOST_VERSION:" "$BOOST_VERSION"
 printf "$format" "IOS_SDK_VERSION:" "$IOS_SDK_VERSION"
 printf "$format" "MIN_IOS_VERSION:" "$MIN_IOS_VERSION"
 printf "$format" "TVOS_SDK_VERSION:" "$TVOS_SDK_VERSION"
+printf "$format" "TVOS_SDK_PATH:" "$TVOS_SDK_PATH"
+printf "$format" "TVOSSIM_SDK_PATH:" "$TVOSSIM_SDK_PATH"
 printf "$format" "MIN_TVOS_VERSION:" "$MIN_TVOS_VERSION"
 printf "$format" "MACOS_SDK_VERSION:" "$MACOS_SDK_VERSION"
+printf "$format" "MACOS_SDK_PATH:" "$MACOS_SDK_PATH"
 printf "$format" "MIN_MACOS_VERSION:" "$MIN_MACOS_VERSION"
 printf "$format" "MACOS_ARCHS:" "${MACOS_ARCHS[*]}"
 printf "$format" "IOS_ARCHS:" "${IOS_ARCHS[*]}"
