@@ -1004,7 +1004,7 @@ if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS ]]; then
 fi
 
 # Must set these after parseArgs to fill in overriden values
-EXTRA_FLAGS="-Wno-unused-local-typedef -fembed-bitcode"
+EXTRA_FLAGS="-fembed-bitcode -Wno-unused-local-typedef -Wno-nullability-completeness"
 
 # The EXTRA_ARM_FLAGS definition works around a thread race issue in
 # shared_ptr. I encountered this historically and have not verified that
