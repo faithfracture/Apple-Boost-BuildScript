@@ -1,3 +1,6 @@
+-- 2018-09-20 --
+* Added support for building 32/64-bit macOS universal.
+
 -- 2018-06-07 --
 * Added a CLI flag to create universal FAT binaries for iOS and tvOS.
 

@@ -414,6 +414,11 @@ parseArgs()
         BOOST_LIBS=$CUSTOM_LIBS
     fi
 
+    # Force 32/64-bit architecture when building universal macOS.
+    if [[ -n $BUILD_MACOS && -n $UNIVERSAL ]]; then
+        CUSTOM_MACOS_ARCHS=("i386 x86_64")
+    fi
+
     if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
         MACOS_ARCHS=($CUSTOM_MACOS_ARCHS)
     fi
@@ -905,8 +910,6 @@ buildUniversal()
             fi
         done
     fi
-	# Note caller needs to manually pass in --macos-archs "i386 x86_64" (in addition to --universal)
-	# to build 32 bit and 64 bit fat.
     if [[ -n $BUILD_MACOS ]]; then
         mkdir -p "$MACOS_BUILD_DIR/universal"
 
