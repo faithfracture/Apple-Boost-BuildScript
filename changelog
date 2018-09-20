@@ -1,3 +1,7 @@
+-- 2018-09-20 --
+* Fixed macOS target problem that caused user-config.jam to be ignored
+* Fixed macOS specific share_ptr crasher caused by using -DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS
+
 -- 2018-06-07 --
 * Added a CLI flag to create universal FAT binaries for iOS and tvOS.
 
