@@ -416,6 +416,9 @@ parseArgs()
     fi
 
     # Force 32/64-bit architecture when building universal macOS.
+    # Forcing i386 & x86_64 is fine for now, but if macOS ever supports
+    # other architectures in the future we'll need to be a bit smarter
+    # about this.
     if [[ -n $BUILD_MACOS && -n $UNIVERSAL ]]; then
         CUSTOM_MACOS_ARCHS=("i386 x86_64")
     fi
