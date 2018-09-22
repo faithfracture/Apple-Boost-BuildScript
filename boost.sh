@@ -658,15 +658,15 @@ buildBoost_macOS()
     mkdir -p "$MACOS_OUTPUT_DIR"
 
     echo building Boost for macOS
-    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage toolset=clang \
-        --prefix="$MACOS_OUTPUT_DIR/prefix" \
+    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
+        toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
         cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
         linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
-    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage \
-        --prefix="$MACOS_OUTPUT_DIR/prefix" toolset=clang \
+    ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
+        toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
         cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
         linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
         macosx-version=${MACOS_SDK_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
@@ -1003,19 +1003,22 @@ if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS ]]; then
     BUILD_MACOS=1
 fi
 
-# The EXTRA_FLAGS definition works around a thread race issue in
+# Must set these after parseArgs to fill in overriden values
+EXTRA_FLAGS="-fembed-bitcode -Wno-unused-local-typedef -Wno-nullability-completeness"
+
+# The EXTRA_ARM_FLAGS definition works around a thread race issue in
 # shared_ptr. I encountered this historically and have not verified that
 # the fix is no longer required. Without using the posix thread primitives
 # an invalid compare-and-swap ARM instruction (non-thread-safe) was used for the
 # shared_ptr use count causing nasty and subtle bugs.
 #
-# Should perhaps also consider/use instead: -BOOST_SP_USE_PTHREADS
+# Note these flags (BOOST_AC_USE_PTHREADS and BOOST_SP_USE_PTHREADS) should
+# only be defined for arm targets. They will cause random (but repeatable)
+# shared_ptr crashes on macOS in boost thread destructors.
+EXTRA_ARM_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG"
 
-# Must set these after parseArgs to fill in overriden values
-EXTRA_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG"`
-    `" -Wno-unused-local-typedef -fembed-bitcode -Wno-nullability-completeness"
-EXTRA_IOS_FLAGS="$EXTRA_FLAGS -mios-version-min=$MIN_IOS_VERSION"
-EXTRA_TVOS_FLAGS="$EXTRA_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
+EXTRA_IOS_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mios-version-min=$MIN_IOS_VERSION"
+EXTRA_TVOS_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
 EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
 EXTRA_MACOS_SDK_FLAGS="-isysroot ${MACOS_SDK_PATH} -mmacosx-version-min=${MIN_MACOS_VERSION}"
 
