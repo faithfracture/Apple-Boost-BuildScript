@@ -70,6 +70,8 @@ TVOS_ARM_DEV_CMD="xcrun --sdk appletvos"
 TVOS_SIM_DEV_CMD="xcrun --sdk appletvsimulator"
 MACOS_DEV_CMD="xcrun --sdk macosx"
 
+BUILD_VARIANT=release
+
 #===============================================================================
 # Functions
 #===============================================================================
@@ -207,6 +209,9 @@ OPTIONS:
         Place headers in a 'boost' root directory in the framework rather than
         directly in the 'Headers' directory.
         Added for compatibility with projects that expect this structure.
+
+    --debug
+        Build a debug variant.
 
     --clean
         Just clean up build artifacts, but don't actually build anything.
@@ -367,6 +372,10 @@ parseArgs()
 
             --universal)
                 UNIVERSAL=1
+                ;;
+
+            --debug)
+                BUILD_VARIANT=debug
                 ;;
 
             --clean)
@@ -613,14 +622,14 @@ buildBoost_iOS()
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
         cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm target-os=iphone \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
-        link=static stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
+        link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
         cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
-        define=_LITTLE_ENDIAN link=static install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
+        define=_LITTLE_ENDIAN link=static variant=${BUILD_VARIANT} install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
     doneSection
 
@@ -628,7 +637,7 @@ buildBoost_iOS()
     ./b2 $THREADS --build-dir=iphonesim-build --stagedir=iphonesim-build/stage \
         toolset=darwin-${IOS_SDK_VERSION}~iphonesim cxxflags="${CXX_FLAGS}" architecture=x86 \
         target-os=iphone macosx-version=iphonesim-${IOS_SDK_VERSION} \
-        link=static stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
+        link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhoneSimulator. Check log."; exit 1; fi
     doneSection
 }
@@ -642,20 +651,21 @@ buildBoost_tvOS()
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
         cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
-        link=static stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
+        link=static variant=${BUILD_VARIANT} stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTV. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
         cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
-        link=static install >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
+        link=static variant=${BUILD_VARIANT} install >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing AppleTV. Check log."; exit 1; fi
     doneSection
 
     echo Building Boost for AppleTVSimulator
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletvsim-build/stage \
         toolset=darwin-${TVOS_SDK_VERSION}~appletvsim architecture=x86 \
-        cxxflags="${CXX_FLAGS}" target-os=iphone link=static stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
+        cxxflags="${CXX_FLAGS}" target-os=iphone link=static variant=${BUILD_VARIANT} \
+        stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTVSimulator. Check log."; exit 1; fi
     doneSection
 }
@@ -669,14 +679,14 @@ buildBoost_macOS()
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
         cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
-        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
+        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static variant=${BUILD_VARIANT} threading=multi \
         macosx-version=${MACOS_SDK_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
         cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
-        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static threading=multi \
+        linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static variant=${BUILD_VARIANT} threading=multi \
         macosx-version=${MACOS_SDK_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing macOS. Check log."; exit 1; fi
 
@@ -1056,9 +1066,9 @@ BOOST_VERSION2="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
 BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
 OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
-IOS_OUTPUT_DIR="$OUTPUT_DIR/ios"
-TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos"
-MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos"
+IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
+TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
+MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos/$BUILD_VARIANT"
 IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
 TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
 MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
@@ -1101,6 +1111,7 @@ printf "$format" "IOS_FRAMEWORK_DIR:" "$IOS_FRAMEWORK_DIR"
 printf "$format" "MACOS_FRAMEWORK_DIR:" "$MACOS_FRAMEWORK_DIR"
 printf "$format" "XCODE_ROOT:" "$XCODE_ROOT"
 printf "$format" "THREADS:" "$THREADS"
+printf "$format" "VARIANT:" "$BUILD_VARIANT"
 echo
 
 if [[ -n "$PURGE" ]]; then
