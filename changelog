@@ -1,3 +1,6 @@
+-- 2018-12-19 --
+* Added ability to compile debug variant (pr#35)
+
 -- 2018-09-20 --
 * Added support for building 32/64-bit macOS universal
 * Fixed macOS target problem that caused user-config.jam to be ignored

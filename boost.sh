@@ -93,9 +93,6 @@ OPTIONS:
     -h | --help
         Display these options and exit.
 
-    -debug
-        Build a debug variant.
-
     -ios
         Build for the iOS platform.
 
@@ -213,6 +210,9 @@ OPTIONS:
         directly in the 'Headers' directory.
         Added for compatibility with projects that expect this structure.
 
+    --debug
+        Build a debug variant.
+
     --clean
         Just clean up build artifacts, but don't actually build anything.
         (all other parameters are ignored)
@@ -266,10 +266,6 @@ parseArgs()
             -h | --help)
                 usage
                 exit
-                ;;
-
-            -debug)
-                BUILD_VARIANT=debug
                 ;;
 
             -ios)
@@ -376,6 +372,10 @@ parseArgs()
 
             --universal)
                 UNIVERSAL=1
+                ;;
+
+            --debug)
+                BUILD_VARIANT=debug
                 ;;
 
             --clean)
@@ -1066,9 +1066,9 @@ BOOST_VERSION2="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
 BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
 OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
-IOS_OUTPUT_DIR="$OUTPUT_DIR/ios"
-TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos"
-MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos"
+IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
+TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
+MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos/$BUILD_VARIANT"
 IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
 TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
 MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
