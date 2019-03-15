@@ -199,6 +199,9 @@ OPTIONS:
         Specify the macOS architectures to build for. Space-separate list.
         Defaults to ${MACOS_ARCHS[*]}
 
+    --hidden-visibility
+        Compile using -fvisibility=hidden and -fvisibility-inlines-hidden
+
     --no-framework
         Do not create the framework.
 
@@ -368,6 +371,10 @@ parseArgs()
                 else
                     missingParameter $1
                 fi
+                ;;
+
+            --hidden-visibility)
+                CXX_FLAGS="$CXX_FLAGS -fvisibility=hidden -fvisibility-inlines-hidden"
                 ;;
 
             --universal)
