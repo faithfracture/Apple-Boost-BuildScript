@@ -29,13 +29,17 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.67.0
+BOOST_VERSION=1.69.0
 
-BOOST_LIBS="atomic chrono date_time exception filesystem program_options random signals system thread test"
-ALL_BOOST_LIBS=\
+BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
+ALL_BOOST_LIBS_1_68=\
 "atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph"\
 " graph_parallel iostreams locale log math metaparse mpi program_options python random regex"\
 " serialization signals system test thread timer type_erasure wave"
+ALL_BOOST_LIBS_1_69=\
+"atomic chrono container context coroutine coroutine2 date_time exception fiber filesystem graph"\
+" graph_parallel iostreams locale log math metaparse mpi program_options python random regex"\
+" serialization signals2 system test thread timer type_erasure wave"
 BOOTSTRAP_LIBS=""
 
 MIN_IOS_VERSION=10.0
@@ -101,7 +105,7 @@ OPTIONS:
 
     -tvos
         Build for the tvOS platform.
-    
+
     --boost-version [num]
         Specify which version of Boost to build.
         Defaults to $BOOST_VERSION.
@@ -419,7 +423,12 @@ parseArgs()
         if [[ "$CUSTOM_LIBS" == "none" ]]; then
             CUSTOM_LIBS=
         elif [[ "$CUSTOM_LIBS" == "all" ]]; then
-            CUSTOM_LIBS=$ALL_BOOST_LIBS
+            boostParts=(${BOOST_VERSION//\./ })
+            if [[ ${boostParts[1]} < 69 ]]; then
+                CUSTOM_LIBS=$ALL_BOOST_LIBS_1_68
+            else
+                CUSTOM_LIBS=$ALL_BOOST_LIBS_1_69
+            fi
         fi
         BOOST_LIBS=$CUSTOM_LIBS
     fi
@@ -620,14 +629,14 @@ buildBoost_iOS()
     # Install this one so we can copy the headers for the frameworks...
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
-        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm target-os=iphone \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm target-os=iphone linkflags="-stdlib=libc++" \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
         link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
-        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm linkflags="-stdlib=libc++" \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
         define=_LITTLE_ENDIAN link=static variant=${BUILD_VARIANT} install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
@@ -635,7 +644,7 @@ buildBoost_iOS()
 
     echo Building Boost for iPhoneSimulator
     ./b2 $THREADS --build-dir=iphonesim-build --stagedir=iphonesim-build/stage \
-        toolset=darwin-${IOS_SDK_VERSION}~iphonesim cxxflags="${CXX_FLAGS}" architecture=x86 \
+        toolset=darwin-${IOS_SDK_VERSION}~iphonesim cxxflags="${CXX_FLAGS}" architecture=x86 linkflags="-stdlib=libc++" \
         target-os=iphone macosx-version=iphonesim-${IOS_SDK_VERSION} \
         link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhoneSimulator. Check log."; exit 1; fi
@@ -650,13 +659,13 @@ buildBoost_tvOS()
     echo Building Boost for AppleTV
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
-        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
+        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN linkflags="-stdlib=libc++" \
         link=static variant=${BUILD_VARIANT} stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTV. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" toolset=darwin-${TVOS_SDK_VERSION}~appletv \
-        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN \
+        cxxflags="${CXX_FLAGS}" architecture=arm target-os=iphone define=_LITTLE_ENDIAN linkflags="-stdlib=libc++" \
         link=static variant=${BUILD_VARIANT} install >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing AppleTV. Check log."; exit 1; fi
     doneSection
@@ -664,7 +673,7 @@ buildBoost_tvOS()
     echo Building Boost for AppleTVSimulator
     ./b2 $THREADS --build-dir=appletv-build --stagedir=appletvsim-build/stage \
         toolset=darwin-${TVOS_SDK_VERSION}~appletvsim architecture=x86 \
-        cxxflags="${CXX_FLAGS}" target-os=iphone link=static variant=${BUILD_VARIANT} \
+        cxxflags="${CXX_FLAGS}" target-os=iphone link=static variant=${BUILD_VARIANT} linkflags="-stdlib=libc++" \
         stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging AppleTVSimulator. Check log."; exit 1; fi
     doneSection
