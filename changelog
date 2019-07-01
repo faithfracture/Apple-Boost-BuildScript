@@ -1,3 +1,13 @@
+-- 2019-07-01 --
+* Added minimum version flags for the iOS and tvOS simulators
+* iOS Simulator binaries now only build to match the specified
+  iOS architecture - e.g. if you only build arm64, only the x86_64
+  simulator binary is produced, rather than both x86_64 and i386.
+* Fixed a problem trying to lipo universal binaries when built
+  binaries only contained a single architecture.
+* Updated README (a little).
+* Updated default minimum OS versions
+
 -- 2018-12-19 --
 * Added ability to compile debug variant (pr#35)
 
