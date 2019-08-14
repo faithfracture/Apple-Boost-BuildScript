@@ -558,12 +558,12 @@ updateBoost()
     if [[ "$1" == "iOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${IOS_SDK_VERSION}~iphone
-: $COMPILER $IOS_ARCH_FLAGS $EXTRA_IOS_FLAGS
+: $COMPILER ${IOS_ARCH_FLAGS[*]} $EXTRA_IOS_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneOS.platform/Developer
 : <architecture>arm <target-os>iphone
 ;
 using darwin : ${IOS_SDK_VERSION}~iphonesim
-: $COMPILER $IOS_SIM_ARCH_FLAGS $EXTRA_IOS_SIM_FLAGS
+: $COMPILER ${IOS_SIM_ARCH_FLAGS[*]} $EXTRA_IOS_SIM_FLAGS
 : <striper> <root>$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer
 : <architecture>x86 <target-os>iphone
 ;
@@ -590,7 +590,7 @@ EOF
     if [[ "$1" == "macOS" ]]; then
         cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : ${MACOS_SDK_VERSION}
-: $COMPILER $MACOS_ARCH_FLAGS $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH
+: $COMPILER ${MACOS_ARCH_FLAGS[*]} $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH
 : <striper> <root>$XCODE_ROOT/Platforms/MacOSX.platform/Developer
 : <architecture>x86 <target-os>darwin
 ;
@@ -650,14 +650,14 @@ buildBoost_iOS()
     # Install this one so we can copy the headers for the frameworks...
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
-        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm target-os=iphone linkflags="-stdlib=libc++" \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS[*]}" architecture=arm target-os=iphone linkflags="-stdlib=libc++" \
         macosx-version=iphone-${IOS_SDK_VERSION} define=_LITTLE_ENDIAN \
         link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=iphone-build --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" toolset=darwin \
-        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS}" architecture=arm linkflags="-stdlib=libc++" \
+        cxxflags="${CXX_FLAGS} ${IOS_ARCH_FLAGS[*]}" architecture=arm linkflags="-stdlib=libc++" \
         target-os=iphone macosx-version=iphone-${IOS_SDK_VERSION} \
         define=_LITTLE_ENDIAN link=static variant=${BUILD_VARIANT} install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing iPhone. Check log."; exit 1; fi
@@ -666,7 +666,7 @@ buildBoost_iOS()
     echo Building Boost for iPhoneSimulator
     ./b2 $THREADS --build-dir=iphonesim-build --stagedir=iphonesim-build/stage \
         toolset=darwin-${IOS_SDK_VERSION}~iphonesim \
-        cxxflags="${CXX_FLAGS} ${IOS_SIM_ARCH_FLAGS}" architecture=x86 linkflags="-stdlib=libc++" \
+        cxxflags="${CXX_FLAGS} ${IOS_SIM_ARCH_FLAGS[*]}" architecture=x86 linkflags="-stdlib=libc++" \
         target-os=iphone macosx-version=iphonesim-${IOS_SDK_VERSION} \
         link=static variant=${BUILD_VARIANT} stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging iPhoneSimulator. Check log."; exit 1; fi
@@ -709,14 +709,14 @@ buildBoost_macOS()
     echo building Boost for macOS
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
-        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
+        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS[*]} ${EXTRA_MACOS_SDK_FLAGS}" \
         linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static variant=${BUILD_VARIANT} threading=multi \
         macosx-version=${MACOS_SDK_VERSION} stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
     ./b2 $THREADS --build-dir=macos-build --stagedir=macos-build/stage --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset=darwin-${MACOS_SDK_VERSION} architecture=x86  \
-        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS} ${EXTRA_MACOS_SDK_FLAGS}" \
+        cxxflags="${CXX_FLAGS} ${MACOS_ARCH_FLAGS[*]} ${EXTRA_MACOS_SDK_FLAGS}" \
         linkflags="-stdlib=libc++ ${EXTRA_MACOS_SDK_FLAGS}" link=static variant=${BUILD_VARIANT} threading=multi \
         macosx-version=${MACOS_SDK_VERSION} install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     if [ $? != 0 ]; then echo "Error installing macOS. Check log."; exit 1; fi
@@ -799,7 +799,6 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                         -thin $ARCH -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
                 done
             else
-                echo Copying ${IOS_ARCHS[0]}
                 cp "iphone-build/stage/lib/libboost_$NAME.a" \
                     "$IOS_BUILD_DIR/${IOS_ARCHS[0]}/libboost_$NAME.a"
             fi
@@ -811,7 +810,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                 done
             else
                 cp "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                    "$IOS_BUILD_DIR/${IOS_ARCHS[0]}/libboost_$NAME.a"
+                    "$IOS_BUILD_DIR/${IOS_SIM_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
 
@@ -1116,19 +1115,19 @@ IOS_FRAMEWORK_DIR="$IOS_OUTPUT_DIR/framework"
 TVOS_FRAMEWORK_DIR="$TVOS_OUTPUT_DIR/framework"
 MACOS_FRAMEWORK_DIR="$MACOS_OUTPUT_DIR/framework"
 
-MACOS_ARCH_FLAGS=""
+MACOS_ARCH_FLAGS=()
 for ARCH in ${MACOS_ARCHS[@]}; do
-    MACOS_ARCH_FLAGS="$MACOS_ARCH_FLAGS -arch $ARCH"
+    MACOS_ARCH_FLAGS+=("-arch $ARCH")
 done
 
-IOS_ARCH_FLAGS=""
+IOS_ARCH_FLAGS=()
 for ARCH in ${IOS_ARCHS[@]}; do
-    IOS_ARCH_FLAGS="$IOS_ARCH_FLAGS -arch $ARCH"
+    IOS_ARCH_FLAGS+=("-arch $ARCH")
 done
 
-IOS_SIM_ARCH_FLAGS=""
+IOS_SIM_ARCH_FLAGS=()
 for ARCH in ${IOS_SIM_ARCHS[@]}; do
-    IOS_SIM_ARCH_FLAGS="$IOS_SIM_ARCH_FLAGS -arch $ARCH"
+    IOS_SIM_ARCH_FLAGS+=("-arch $ARCH")
 done
 
 format="%-20s %s\n"
