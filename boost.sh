@@ -55,8 +55,8 @@ MACOS_SDK_VERSION=`xcrun --sdk macosx --show-sdk-version`
 MACOS_SDK_PATH=`xcrun --sdk macosx --show-sdk-path`
 
 MACOS_ARCHS=("x86_64")
-IOS_ARCHS=("armv7 arm64")
-IOS_SIM_ARCHS=("i386 x86_64")
+IOS_ARCHS=("armv7" "arm64")
+IOS_SIM_ARCHS=("i386" "x86_64")
 
 # Applied to all platforms
 CXX_FLAGS="-std=c++14 -stdlib=libc++"
@@ -447,24 +447,25 @@ parseArgs()
     # other architectures in the future we'll need to be a bit smarter
     # about this.
     if [[ -n $BUILD_MACOS && -n $UNIVERSAL ]]; then
-        CUSTOM_MACOS_ARCHS=("i386 x86_64")
+        CUSTOM_MACOS_ARCHS=("i386" "x86_64")
     fi
 
     if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
-        MACOS_ARCHS=($CUSTOM_MACOS_ARCHS)
+        IFS=' ' read -ra MACOS_ARCHS <<< "$CUSTOM_MACOS_ARCHS"
     fi
 
     if [[ -n $CUSTOM_IOS_ARCHS ]]; then
-        IOS_ARCHS=($CUSTOM_IOS_ARCHS)
-        IOS_SIM_ARCHS=""
+        IFS=' ' read -ra IOS_ARCHS <<< "$CUSTOM_IOS_ARCHS"
+        #IOS_ARCHS=($CUSTOM_IOS_ARCHS)
+        IOS_SIM_ARCHS=()
         # As of right now this matches the currently available ARM architectures
         # Add 32-bit simulator for 32-bit arm
         if [[ "${IOS_ARCHS[@]}" =~ armv ]]; then
-            IOS_SIM_ARCHS="i386 $IOS_SIM_ARCHS"
+            IOS_SIM_ARCHS+=("i386")
         fi
         # Add 64-bit simulator for 64-bit arm
         if [[ "${IOS_ARCHS[@]}" =~ arm64 ]]; then
-            IOS_SIM_ARCHS="x86_64 $IOS_SIM_ARCHS"
+            IOS_SIM_ARCHS+=("x86_64")
         fi
     elif (( $(echo "$MIN_IOS_VERSION >= 11.0" | bc -l) )); then
         IOS_ARCHS=("arm64")
@@ -792,25 +793,26 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         ALL_LIBS="$ALL_LIBS libboost_$NAME.a"
 
         if [[ -n $BUILD_IOS ]]; then
-            for ARCH in ${IOS_ARCHS[@]}; do
-                if [[ ${#IOS_ARCHS[@]} > 1 ]]; then
+            if [[ ${#IOS_ARCHS[@]} > 1 ]]; then
+                for ARCH in ${IOS_ARCHS[@]}; do
                     $IOS_ARM_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
                         -thin $ARCH -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-                else
-                    cp "iphone-build/stage/lib/libboost_$NAME.a" \
-                        "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-                fi
-            done
+                done
+            else
+                echo Copying ${IOS_ARCHS[0]}
+                cp "iphone-build/stage/lib/libboost_$NAME.a" \
+                    "$IOS_BUILD_DIR/${IOS_ARCHS[0]}/libboost_$NAME.a"
+            fi
 
-            for ARCH in ${IOS_SIM_ARCHS[@]}; do
-                if [[ ${#IOS_SIM_ARCHS[@]} > 1 ]]; then
+            if [[ ${#IOS_SIM_ARCHS[@]} > 1 ]]; then
+                for ARCH in ${IOS_SIM_ARCHS[@]}; do
                     $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
                         -thin $ARCH -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-                else
-                    cp "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                        "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-                fi
-            done
+                done
+            else
+                cp "iphonesim-build/stage/lib/libboost_$NAME.a" \
+                    "$IOS_BUILD_DIR/${IOS_ARCHS[0]}/libboost_$NAME.a"
+            fi
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
@@ -822,14 +824,14 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
-            if (( ${#MACOS_ARCHS[@]} == 1 )); then
-                cp "macos-build/stage/lib/libboost_$NAME.a" \
-                    "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
-            else
+            if (( ${#MACOS_ARCHS[@]} > 1 )); then
                 for ARCH in ${MACOS_ARCHS[@]}; do
                     $MACOS_DEV_CMD lipo "macos-build/stage/lib/libboost_$NAME.a" \
                         -thin $ARCH -o "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
                 done
+            else
+                cp "macos-build/stage/lib/libboost_$NAME.a" \
+                    "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
             fi
         fi
     done

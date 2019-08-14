@@ -1,3 +1,6 @@
+-- 2019-08-14 --
+* Fixed my being stupid, doing bash arrays wrong, and breaking everyone
+
 -- 2019-07-01 --
 * Added minimum version flags for the iOS and tvOS simulators
 * iOS Simulator binaries now only build to match the specified
