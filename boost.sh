@@ -507,12 +507,20 @@ cleanup()
 
 #===============================================================================
 
+# version() from https://stackoverflow.com/a/37939589/3938401
+version() { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+
 downloadBoost()
 {
+         #   http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION2}.tar.bz2/download
+        if [ $(version $BOOST_VERSION) -ge $(version "1.63.0") ]; then
+            DOWNLOAD_SRC=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION2}.tar.bz2
+        else
+            DOWNLOAD_SRC=http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION2}.tar.bz2/download
+        fi
     if [ ! -s "$BOOST_TARBALL" ]; then
-        echo "Downloading boost ${BOOST_VERSION}"
-        curl -L -o "$BOOST_TARBALL" \
-            https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION2}.tar.bz2
+        echo "Downloading boost ${BOOST_VERSION} from ${DOWNLOAD_SRC}"
+        curl -L -o "$BOOST_TARBALL" "$DOWNLOAD_SRC"
         doneSection
     fi
 }
