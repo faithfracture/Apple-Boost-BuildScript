@@ -451,11 +451,11 @@ parseArgs()
     fi
 
     if [[ -n $CUSTOM_MACOS_ARCHS ]]; then
-        IFS=' ' read -ra MACOS_ARCHS <<< "$CUSTOM_MACOS_ARCHS"
+        IFS=' ' read -ra MACOS_ARCHS <<< "${CUSTOM_MACOS_ARCHS[*]}"
     fi
 
     if [[ -n $CUSTOM_IOS_ARCHS ]]; then
-        IFS=' ' read -ra IOS_ARCHS <<< "$CUSTOM_IOS_ARCHS"
+        IFS=' ' read -ra IOS_ARCHS <<< "${CUSTOM_IOS_ARCHS[*]}"
         #IOS_ARCHS=($CUSTOM_IOS_ARCHS)
         IOS_SIM_ARCHS=()
         # As of right now this matches the currently available ARM architectures
