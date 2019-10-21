@@ -1,3 +1,6 @@
+-- 2019-09-20 --
+* Use bintray rather than sourceforge for downloads
+
 -- 2019-08-14 --
 * Fixed my being stupid, doing bash arrays wrong, and breaking everyone
 
