@@ -1,3 +1,7 @@
+-- 2020-04-08 --
+* Add shellcheck to CI
+* Fix all shellcheck warnings
+
 -- 2019-09-20 --
 * Use bintray rather than sourceforge for downloads
 
