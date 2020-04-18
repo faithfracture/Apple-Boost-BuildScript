@@ -29,7 +29,7 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.69.0
+BOOST_VERSION=1.72.0
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
 ALL_BOOST_LIBS_1_68="atomic chrono container context coroutine coroutine2
@@ -43,15 +43,12 @@ system test thread timer type_erasure wave"
 BOOTSTRAP_LIBS=""
 
 MIN_IOS_VERSION=11.0
-IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 
 MIN_TVOS_VERSION=11.0
-TVOS_SDK_VERSION=$(xcrun --sdk appletvos --show-sdk-version)
 TVOS_SDK_PATH=$(xcrun --sdk appletvos --show-sdk-path)
 TVOSSIM_SDK_PATH=$(xcrun --sdk appletvsimulator --show-sdk-path)
 
 MIN_MACOS_VERSION=10.12
-MACOS_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
 MACOS_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
 
 MACOS_ARCHS=("x86_64")
@@ -61,6 +58,7 @@ IOS_SIM_ARCHS=("i386" "x86_64")
 # Applied to all platforms
 CXX_FLAGS="-std=c++14 -stdlib=libc++"
 
+XCODE_VERSION=$(xcrun xcodebuild -version | head -n1 | tr -Cd '[:digit:].')
 XCODE_ROOT=$(xcode-select -print-path)
 COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++"
 
@@ -80,6 +78,17 @@ BUILD_VARIANT=release
 #===============================================================================
 # Functions
 #===============================================================================
+
+sdkVersion()
+{
+    FULL_VERSION=$(xcrun --sdk "$1" --show-sdk-version)
+    read -ra VERSION <<< "${FULL_VERSION//./ }"
+    echo "${VERSION[0]}.${VERSION[1]}"
+}
+
+IOS_SDK_VERSION=$(sdkVersion iphoneos)
+TVOS_SDK_VERSION=$(sdkVersion appletvos)
+MACOS_SDK_VERSION=$(sdkVersion macosx)
 
 usage()
 {
@@ -544,6 +553,22 @@ unpackBoost()
     [ -d "$SRCDIR" ]    || mkdir -p "$SRCDIR"
     [ -d "$BOOST_SRC" ] || ( cd_or_abort "$SRCDIR"; tar xjf "$BOOST_TARBALL" )
     [ -d "$BOOST_SRC" ] && echo "    ...unpacked as $BOOST_SRC"
+
+    doneSection
+}
+
+#===============================================================================
+
+patchBoost()
+{
+    echo "Patching boost in $BOOST_SRC"
+
+    if [ "$(version "$BOOST_VERSION")" -le "$(version "1.72.0")" ] &&
+       [ "$(version "$XCODE_VERSION")" -ge "$(version "11.4")" ]
+    then
+        # https://github.com/boostorg/build/pull/560
+        (cd "$BOOST_SRC" && patch --forward -p1 -d "$BOOST_SRC/tools/build" < "$CURRENT_DIR/patches/xcode-11.4.patch")
+    fi
 
     doneSection
 }
@@ -1206,6 +1231,7 @@ fi
 downloadBoost
 unpackBoost
 inventMissingHeaders
+patchBoost
 
 if [[ -n $BUILD_IOS ]]; then
     updateBoost "iOS"
