@@ -1,3 +1,6 @@
+-- 2020-05-31 --
+* Cleanup build commands and patch of Boost's user-config.jam
+
 -- 2020-04-18 --
 * Updated default boost version to 1.72.0
 * Fixed error "unknown argument: '-fcoalesce-templates'" when building with Xcode 11.4 (#45)
