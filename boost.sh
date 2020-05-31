@@ -1222,29 +1222,36 @@ printVar()
 }
 asBool() { test -n "$1" && echo "YES" || echo "NO"; }
 
-printVar "BUILD_IOS" "$(asBool "$BUILD_IOS")"
-printVar "BUILD_TVOS" "$(asBool "$BUILD_TVOS")"
-printVar "BUILD_MACOS" "$(asBool "$BUILD_MACOS")"
 printVar "BOOST_VERSION"
+echo
+printVar "BUILD_IOS" "$(asBool "$BUILD_IOS")"
+printVar "IOS_ARCHS"
 printVar "IOS_SDK_VERSION"
+printVar "IOS_SDK_PATH"
+printVar "IOSSIM_SDK_PATH"
 printVar "MIN_IOS_VERSION"
+echo
+printVar "BUILD_TVOS" "$(asBool "$BUILD_TVOS")"
 printVar "TVOS_SDK_VERSION"
 printVar "TVOS_SDK_PATH"
 printVar "TVOSSIM_SDK_PATH"
 printVar "MIN_TVOS_VERSION"
+echo
+printVar "BUILD_MACOS" "$(asBool "$BUILD_MACOS")"
+printVar "MACOS_ARCHS"
 printVar "MACOS_SDK_VERSION"
 printVar "MACOS_SDK_PATH"
 printVar "MIN_MACOS_VERSION"
-printVar "MACOS_ARCHS"
-printVar "IOS_ARCHS"
-printVar "IOS_SIM_ARCHS"
+echo
 printVar "BOOST_LIBS"
 printVar "BOOST_SRC"
+printVar "XCODE_ROOT"
 printVar "IOS_BUILD_DIR"
+printVar "TVOS_BUILD_DIR"
 printVar "MACOS_BUILD_DIR"
+printVar "TVOS_FRAMEWORK_DIR"
 printVar "IOS_FRAMEWORK_DIR"
 printVar "MACOS_FRAMEWORK_DIR"
-printVar "XCODE_ROOT"
 printVar "THREADS"
 printVar "BUILD_VARIANT"
 echo
