@@ -225,15 +225,10 @@ OPTIONS:
         Compile using -fvisibility=hidden and -fvisibility-inlines-hidden
 
     --no-framework
-        Do not create the framework.
+        Do not create the xcframework.
 
     --universal
         Create universal FAT binary.
-
-    --framework-header-root
-        Place headers in a 'boost' root directory in the framework rather than
-        directly in the 'Headers' directory.
-        Added for compatibility with projects that expect this structure.
 
     --debug
         Build a debug variant.
@@ -427,10 +422,6 @@ parseArgs()
 
             --no-framework)
                 NO_FRAMEWORK=1
-                ;;
-
-            --framework-header-root)
-                HEADER_ROOT=1
                 ;;
 
             -j | --threads)
@@ -1075,80 +1066,76 @@ buildUniversal()
 }
 
 #===============================================================================
-buildFramework()
+
+buildXCFramework()
 {
     : "${1:?}"
-    FRAMEWORKDIR="$1"
-    BUILDDIR="$2/build"
-    PREFIXDIR="$2/prefix"
+    DISTDIR="$1"
 
     FRAMEWORK_NAME=boost
-    FRAMEWORK_VERSION=A
 
     FRAMEWORK_CURRENT_VERSION="$BOOST_VERSION"
 
-    FRAMEWORK_BUNDLE="$FRAMEWORKDIR/$FRAMEWORK_NAME.framework"
-    echo "Framework: Building $FRAMEWORK_BUNDLE from $BUILDDIR..."
+    FRAMEWORK_BUNDLE="$DISTDIR/$FRAMEWORK_NAME.xcframework"
+    echo "Framework: Building $FRAMEWORK_BUNDLE..."
 
     rm -rf "$FRAMEWORK_BUNDLE"
-    if [[ -n $HEADER_ROOT ]]; then
-        FRAMEWORK_HEADERS="/Headers/boost/"
-    else
-        FRAMEWORK_HEADERS="/Headers/"
-    fi
 
-    echo "Framework: Setting up directories..."
-    mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/Resources"
-    mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_HEADERS"
-    mkdir -p "$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/Documentation"
+    SLICES_COUNT=0
+    LIB_ARGS=()
+    # We'll take any of the paths we find, headers should be the same for all
+    # archs / plaforms.
+    HEADERS_PATH=""
+    if [[ -n $BUILD_IOS ]]; then
+        for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.a; do
+            LIB_ARGS+=('-library' "$LIBPATH")
+            SLICES_COUNT=$((SLICES_COUNT + 1))
+        done
 
-    echo "Framework: Creating symlinks..."
-    ln -s "$FRAMEWORK_VERSION" "$FRAMEWORK_BUNDLE/Versions/Current"
-    ln -s "Versions/Current/Headers" "$FRAMEWORK_BUNDLE/Headers"
-    ln -s "Versions/Current/Resources" "$FRAMEWORK_BUNDLE/Resources"
-    ln -s "Versions/Current/Documentation" "$FRAMEWORK_BUNDLE/Documentation"
-    ln -s "Versions/Current/$FRAMEWORK_NAME" "$FRAMEWORK_BUNDLE/$FRAMEWORK_NAME"
-
-    FRAMEWORK_INSTALL_NAME="$FRAMEWORK_BUNDLE/Versions/$FRAMEWORK_VERSION/$FRAMEWORK_NAME"
-
-    if [[ -n $BOOTSTRAP_LIBS ]]; then
-        echo "Lipoing library into $FRAMEWORK_INSTALL_NAME..."
-        cd_or_abort "$BUILDDIR"
-        if [[ -n $BUILD_IOS ]]; then
-            $IOS_DEV_CMD lipo -create ./*/libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
-        fi
-        if [[ -n $BUILD_TVOS ]]; then
-            $TVOS_DEV_CMD lipo -create ./*/libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
-        fi
-        if [[ -n $BUILD_MACOS ]]; then
-            $MACOS_DEV_CMD lipo -create ./*/libboost.a -o "$FRAMEWORK_INSTALL_NAME" || abort "Lipo $1 failed"
+        INCLUDE_DIR="$IOS_OUTPUT_DIR/prefix/include"
+        if [ -d "$INCLUDE_DIR" ]; then
+            HEADERS_PATH="$INCLUDE_DIR"
         fi
     fi
+    if [[ -n $BUILD_TVOS ]]; then
+        for LIBPATH in "$TVOS_OUTPUT_DIR"/build/*/libboost.a; do
+            LIB_ARGS+=('-library' "$LIBPATH")
+            SLICES_COUNT=$((SLICES_COUNT + 1))
+        done
 
-    echo "Framework: Copying includes..."
-    cp -r "$PREFIXDIR/include/boost/"* "$FRAMEWORK_BUNDLE/$FRAMEWORK_HEADERS"
+        INCLUDE_DIR="$TVOS_OUTPUT_DIR/prefix/include"
+        if [ -d "$INCLUDE_DIR" ]; then
+            HEADERS_PATH="$INCLUDE_DIR"
+        fi
+    fi
+    if [[ -n $BUILD_MACOS ]]; then
+        for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.a; do
+            LIB_ARGS+=('-library' "$LIBPATH")
+            SLICES_COUNT=$((SLICES_COUNT + 1))
+        done
 
-    echo "Framework: Creating plist..."
-    cat > "$FRAMEWORK_BUNDLE/Resources/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-<key>CFBundleExecutable</key>
-<string>${FRAMEWORK_NAME}</string>
-<key>CFBundleIdentifier</key>
-<string>org.boost</string>
-<key>CFBundleInfoDictionaryVersion</key>
-<string>6.0</string>
-<key>CFBundlePackageType</key>
-<string>FMWK</string>
-<key>CFBundleSignature</key>
-<string>????</string>
-<key>CFBundleVersion</key>
-<string>${FRAMEWORK_CURRENT_VERSION}</string>
-</dict>
-</plist>
-EOF
+        INCLUDE_DIR="$MACOS_OUTPUT_DIR/prefix/include"
+        if [ -d "$INCLUDE_DIR" ]; then
+            HEADERS_PATH="$INCLUDE_DIR"
+        fi
+    fi
+
+    xcrun xcodebuild -create-xcframework \
+        "${LIB_ARGS[@]}" \
+        -headers "$HEADERS_PATH" \
+        -output "$FRAMEWORK_BUNDLE"
+
+
+    # Fix the 'Headers' directory location in the xcframework, and update the
+    # Info.plist accordingly for all slices.
+    FRAMEWORK_HEADERS_PATH=$(find "${FRAMEWORK_BUNDLE}" -name 'Headers')
+    mv "$FRAMEWORK_HEADERS_PATH" "$FRAMEWORK_BUNDLE"
+
+    for I in $(seq 0 $((SLICES_COUNT - 1))); do
+      plutil -replace "AvailableLibraries.$I.HeadersPath" -string '../Headers' "$FRAMEWORK_BUNDLE/Info.plist"
+    done
+
+    echo "$FRAMEWORK_CURRENT_VERSION" > "$FRAMEWORK_BUNDLE/VERSION"
 
     doneSection
 }
@@ -1195,9 +1182,6 @@ MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos/$BUILD_VARIANT"
 IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
 TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
 MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
-IOS_FRAMEWORK_DIR="$IOS_OUTPUT_DIR/framework"
-TVOS_FRAMEWORK_DIR="$TVOS_OUTPUT_DIR/framework"
-MACOS_FRAMEWORK_DIR="$MACOS_OUTPUT_DIR/framework"
 
 MACOS_ARCH_FLAGS=()
 for ARCH in "${MACOS_ARCHS[@]}"; do
@@ -1249,9 +1233,6 @@ printVar "XCODE_ROOT"
 printVar "IOS_BUILD_DIR"
 printVar "TVOS_BUILD_DIR"
 printVar "MACOS_BUILD_DIR"
-printVar "TVOS_FRAMEWORK_DIR"
-printVar "IOS_FRAMEWORK_DIR"
-printVar "MACOS_FRAMEWORK_DIR"
 printVar "THREADS"
 printVar "BUILD_VARIANT"
 echo
@@ -1301,17 +1282,9 @@ if [[ -n $UNIVERSAL ]]; then
 fi
 
 if [[ -z $NO_FRAMEWORK ]]; then
-    if [[ -n $BUILD_IOS ]]; then
-        buildFramework "$IOS_FRAMEWORK_DIR" "$IOS_OUTPUT_DIR"
-    fi
-
-    if [[ -n $BUILD_TVOS ]]; then
-        buildFramework "$TVOS_FRAMEWORK_DIR" "$TVOS_OUTPUT_DIR"
-    fi
-
-    if [[ -n $BUILD_MACOS ]]; then
-        buildFramework "$MACOS_FRAMEWORK_DIR" "$MACOS_OUTPUT_DIR"
-    fi
+    DIST_DIR="$CURRENT_DIR/dist"
+    mkdir -p "$DIST_DIR"
+    buildXCFramework "$DIST_DIR"
 fi
 
 echo "Completed successfully"
