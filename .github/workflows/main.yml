@@ -8,10 +8,95 @@ on:
 
 jobs:
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: shellcheck
-      uses: azohra/shell-linter@v0.3.0
+      uses: azohra/shell-linter@v0.4.0
       with:
           path: "*.sh"
+
+  build-boost:
+    name: Build boost
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: bash boost.sh
+    - name: Upload built boost.xcframework
+      uses: actions/upload-artifact@v2
+      with:
+        name: boost.xcframework
+        path: dist/boost.xcframework
+
+  build-macOS:
+    name: Build macOS (native)
+    needs: build-boost
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download boost.xcframework from job build-boost
+      uses: actions/download-artifact@v2
+      with:
+        name: boost.xcframework
+        path: dist/boost.xcframework
+    - uses: sersoft-gmbh/xcodebuild-action@v1.1
+      with:
+          project: SampleBoostApp/SampleBoostApp.xcodeproj
+          scheme: SampleBoostApp_macOS
+          destination: platform=macOS
+          action: build
+
+  build-macOS-catalyst:
+    name: Build macOS (Catalyst)
+    needs: build-boost
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download boost.xcframework from job build-boost
+      uses: actions/download-artifact@v2
+      with:
+        name: boost.xcframework
+        path: dist/boost.xcframework
+    - uses: sersoft-gmbh/xcodebuild-action@v1.1
+      with:
+          project: SampleBoostApp/SampleBoostApp.xcodeproj
+          scheme: SampleBoostApp_iOS
+          destination: platform=macOS
+          action: build
+
+  build-iOS:
+    name: Build iOS
+    needs: build-boost
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download boost.xcframework from job build-boost
+      uses: actions/download-artifact@v2
+      with:
+        name: boost.xcframework
+        path: dist/boost.xcframework
+    - uses: sersoft-gmbh/xcodebuild-action@v1.1
+      with:
+          project: SampleBoostApp/SampleBoostApp.xcodeproj
+          scheme: SampleBoostApp_iOS
+          destination: platform=iOS Simulator,name=iPhone 11
+          action: build
+
+  build-tvOS:
+    name: Build tvOS
+    needs: build-boost
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download boost.xcframework from job build-boost
+      uses: actions/download-artifact@v2
+      with:
+        name: boost.xcframework
+        path: dist/boost.xcframework
+    - uses: sersoft-gmbh/xcodebuild-action@v1.1
+      with:
+          project: SampleBoostApp/SampleBoostApp.xcodeproj
+          scheme: SampleBoostApp_tvOS
+          destination: platform=tvOS Simulator,name=Apple TV
+          action: build
