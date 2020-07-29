@@ -1059,7 +1059,7 @@ buildUniversal()
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $MACOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
             fi
         done
     fi
