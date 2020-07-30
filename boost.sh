@@ -21,7 +21,7 @@
 #    MIN_TVOS_VERSION: Minimum iOS Target Version (e.g. 11.0)
 #    MACOS_SDK_VERSION: macOS SDK version (e.g. 10.14)
 #    MIN_MACOS_VERSION: Minimum macOS Target Version (e.g. 10.12)
-#    MACOS_SILICON_SDK_VERSION: macOS SDK version (e.g. 10.14)
+#    MACOS_SILICON_SDK_VERSION: macOS SDK version for Apple Silicon (e.g. 11.0)
 #    MIN_MACOS_SILICON_VERSION: Minimum macOS Target Version for Apple Silicon (e.g. 11.0)
 #
 # If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not

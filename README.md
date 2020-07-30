@@ -1,10 +1,10 @@
 # Apple-Boost-BuildScript
-Script for building Boost for Apple platforms (iOS, iOS Simulator, tvOS, tvOS Simulator, OS X)
+Script for building Boost for Apple platforms (iOS, iOS Simulator, tvOS, tvOS Simulator, macOS)
 
 This is a new location for my previous GIST:
     https://gist.github.com/faithfracture/c629ae4c7168216a9856
 
-Builds a Boost framework for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS.
+Builds a Boost framework for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS (including Apple Silicon).
 Creates a set of universal libraries that can be used on iOS/tvOS/macOS and in the
 iOS/tvOS simulators. Then creates a pseudo-framework to make using boost in Xcode
 less painful.
@@ -19,6 +19,8 @@ To configure the script, define:
    MIN_TVOS_VERSION:  Minimum tvOS Target Version (e.g. 11.0)
    MACOS_SDK_VERSION:  macOS SDK version (e.g. 10.14)
    MIN_MACOS_VERSION:  Minimum macOS Target Version (e.g. 10.12)
+   MACOS_SILICON_SDK_VERSION: macOS SDK version for Apple Silicon (e.g. 11.0)
+   MIN_MACOS_SILICON_VERSION: Minimum macOS Target Version for Apple Silicon (e.g. 11.0)
 ```
 
 If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not
