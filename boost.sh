@@ -21,6 +21,8 @@
 #    MIN_TVOS_VERSION: Minimum iOS Target Version (e.g. 11.0)
 #    MACOS_SDK_VERSION: macOS SDK version (e.g. 10.14)
 #    MIN_MACOS_VERSION: Minimum macOS Target Version (e.g. 10.12)
+#    MACOS_SILICON_SDK_VERSION: macOS SDK version (e.g. 10.14)
+#    MIN_MACOS_SILICON_VERSION: Minimum macOS Target Version for Apple Silicon (e.g. 11.0)
 #
 # If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not
 # exist in the current directory, this script will attempt to download the
@@ -53,10 +55,14 @@ TVOS_SDK_PATH=$(xcrun --sdk appletvos --show-sdk-path)
 TVOSSIM_SDK_PATH=$(xcrun --sdk appletvsimulator --show-sdk-path)
 
 MIN_MACOS_VERSION=10.12
+MIN_MACOS_SILICON_VERSION=11
 MACOS_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
 MACOS_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+MACOS_SILICON_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
+MACOS_SILICON_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
 
-MACOS_ARCHS=("x86_64")
+MACOS_ARCHS=("i386" "x86_64")
+MACOS_SILICON_ARCHS=("arm64")
 IOS_ARCHS=("armv7" "arm64")
 IOS_SIM_ARCHS=("i386" "x86_64")
 
@@ -79,6 +85,7 @@ IOS_SIM_DEV_CMD="xcrun --sdk iphonesimulator"
 TVOS_DEV_CMD="xcrun --sdk appletvos"
 TVOS_SIM_DEV_CMD="xcrun --sdk appletvsimulator"
 MACOS_DEV_CMD="xcrun --sdk macosx"
+MACOS_SILICON_DEV_CMD="xcrun --sdk macosx"
 
 BUILD_VARIANT=release
 
@@ -96,6 +103,7 @@ sdkVersion()
 IOS_SDK_VERSION=$(sdkVersion iphoneos)
 TVOS_SDK_VERSION=$(sdkVersion appletvos)
 MACOS_SDK_VERSION=$(sdkVersion macosx)
+MACOS_SILICON_SDK_VERSION=$(sdkVersion macosx)
 
 usage()
 {
@@ -213,13 +221,25 @@ OPTIONS:
         Specify the macOS SDK version to build with.
         Defaults to $MACOS_SDK_VERSION
 
+    --macos-silicon-sdk
+        Specify the macOS SDK version to build Apple Silicon binaries with.
+        Defaults to $MACOS_SILICON_SDK_VERSION
+
     --min-macos-version [num]
         Specify the minimum macOS version to target.
         Defaults to $MIN_MACOS_VERSION
 
+    --min-macos-silicon-version [NUM]
+        Specify the minimum macOS Apple Silicon version to target.
+        Defaults to $MIN_MACOS_SILICON_VERSION
+
     --macos-archs "(archs, ...)"
         Specify the macOS architectures to build for. Space-separate list.
         Defaults to ${MACOS_ARCHS[*]}
+
+    --macos-silicon-archs "(archs, ...)"
+        Specify the macOS Apple Silicon architectures to build for. Space-separate list.
+        Defaults to ${MACOS_SILICON_ARCHS[*]}
 
     --hidden-visibility
         Compile using -fvisibility=hidden and -fvisibility-inlines-hidden
@@ -306,6 +326,10 @@ parseArgs()
                 BUILD_MACOS=1
                 ;;
 
+            -macossilicon)
+                BUILD_MACOS_SILICON=1
+                ;;
+
             --boost-version)
                 if [ -n "$2" ]; then
                     BOOST_VERSION=$2
@@ -378,6 +402,15 @@ parseArgs()
                 fi
                 ;;
 
+            --macos-silicon-sdk)
+                 if [ -n "$2" ]; then
+                    MACOS_SILICON_SDK_VERSION=$2
+                    shift
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
             --min-macos-version)
                 if [ -n "$2" ]; then
                     MIN_MACOS_VERSION=$2
@@ -387,9 +420,27 @@ parseArgs()
                 fi
                 ;;
 
+            --min-macos-silicon-version)
+                if [ -n "$2" ]; then
+                    MIN_MACOS_SILICON_VERSION=$2
+                    shift
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
             --macos-archs)
                 if [ -n "$2" ]; then
                     CUSTOM_MACOS_ARCHS=$2
+                    shift;
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
+            --macos-silicon-archs)
+                if [ -n "$2" ]; then
+                    CUSTOM_MACOS_SILICON_ARCHS=$2
                     shift;
                 else
                     missingParameter "$1"
@@ -460,11 +511,15 @@ parseArgs()
     # other architectures in the future we'll need to be a bit smarter
     # about this.
     if [[ -n $BUILD_MACOS && -n $UNIVERSAL ]]; then
-        CUSTOM_MACOS_ARCHS=("i386" "x86_64")
+        CUSTOM_MACOS_ARCHS=("i386 x86_64")
     fi
 
     if [[ "${#CUSTOM_MACOS_ARCHS[@]}" -gt 0 ]]; then
         read -ra MACOS_ARCHS <<< "${CUSTOM_MACOS_ARCHS[@]}"
+    fi
+
+    if [[ "${#CUSTOM_MACOS_SILICON_ARCHS[@]}" -gt 0 ]]; then
+        read -ra MACOS_SILICON_ARCHS <<< "${CUSTOM_MACOS_SILICON_ARCHS[@]}"
     fi
 
     if [[ "${#CUSTOM_IOS_ARCHS[@]}" -gt 0 ]]; then
@@ -516,6 +571,13 @@ cleanup()
     if [[ -n $BUILD_MACOS ]]; then
         rm -r "$BOOST_SRC/macos-build"
         rm -r "$MACOS_OUTPUT_DIR"
+    fi
+    if [[ -n $BUILD_MACOS_SILICON ]]; then
+        rm -r "$BOOST_SRC/macos-silicon-build"
+        rm -r "$MACOS_SILICON_OUTPUT_DIR"
+    fi
+    if [[ -n $BUILD_MACOS ]] || [[ -n $BUILD_MACOS_SILICON ]] ; then
+        rm -r "$MACOS_COMBINED_OUTPUT_DIR"
     fi
 
     doneSection
@@ -639,6 +701,15 @@ using darwin : $COMPILER_VERSION~macos
   <cxxflags>"$CXX_FLAGS"
   <linkflags>"$LD_FLAGS"
   <compileflags>"$OTHER_FLAGS ${MACOS_ARCH_FLAGS[*]} $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH"
+  <threading>multi
+;
+using darwin : $COMPILER_VERSION~macossilicon
+: $COMPILER
+: <architecture>arm
+  <target-os>darwin
+  <cxxflags>"$CXX_FLAGS"
+  <linkflags>"$LD_FLAGS"
+  <compileflags>"$OTHER_FLAGS ${MACOS_SILICON_ARCH_FLAGS[*]} $EXTRA_MACOS_SILICON_FLAGS -isysroot $MACOS_SILICON_SDK_PATH" -target arm64-apple-macos$MIN_MACOS_SILICON_VERSION
   <threading>multi
 ;
 $USING_MPI
@@ -804,6 +875,37 @@ buildBoost_macOS()
     doneSection
 }
 
+buildBoost_macOS_silicon()
+{
+    cd_or_abort "$BOOST_SRC"
+    mkdir -p "$MACOS_SILICON_OUTPUT_DIR"
+
+    echo building Boost for macOS Silicon
+    ./b2 "$THREADS" \
+        --build-dir=macos-silicon-build \
+        --stagedir=macos-silicon-build/stage \
+        --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
+        toolset="darwin-$COMPILER_VERSION~macossilicon" \
+        link=static \
+        variant=${BUILD_VARIANT} \
+        stage >> "${MACOS_SILICON_OUTPUT_DIR}/macos-silicon-build.log" 2>&1
+    # shellcheck disable=SC2181
+    if [ $? != 0 ]; then echo "Error staging macOS silicon. Check log."; exit 1; fi
+
+    ./b2 "$THREADS" \
+        --build-dir=macos-silicon-build \
+        --stagedir=macos-silicon-build/stage \
+        --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
+        toolset="darwin-$COMPILER_VERSION~macossilicon" \
+        link=static \
+        variant=${BUILD_VARIANT} \
+        install >> "${MACOS_SILICON_OUTPUT_DIR}/macos-silicon-build.log" 2>&1
+    # shellcheck disable=SC2181
+    if [ $? != 0 ]; then echo "Error installing macOS silicon. Check log."; exit 1; fi
+
+    doneSection
+}
+
 #===============================================================================
 
 unpackArchive()
@@ -861,6 +963,13 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         done
     fi
 
+    if [[ -n $BUILD_MACOS_SILICON ]]; then
+        # macOS Silicon
+        for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+            mkdir -p "$MACOS_SILICON_BUILD_DIR/$ARCH/obj"
+        done
+    fi
+
     ALL_LIBS=""
 
     echo Splitting all existing fat binaries...
@@ -910,7 +1019,19 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                 done
             else
                 cp "macos-build/stage/lib/libboost_$NAME.a" \
-                    "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                    "$MACOS_BUILD_DIR/${MACOS_ARCHS[0]}/libboost_$NAME.a"
+            fi
+        fi
+
+        if [[ -n $BUILD_MACOS_SILICON ]]; then
+            if [[ "${#MACOS_SILICON_ARCHS[@]}" -gt 1 ]]; then
+                for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+                    $MACOS_SILICON_DEV_CMD lipo "macos-silicon-build/stage/lib/libboost_$NAME.a" \
+                        -thin "$ARCH" -o "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                done
+            else
+                cp "macos-silicon-build/stage/lib/libboost_$NAME.a" \
+                    "$MACOS_SILICON_BUILD_DIR/${MACOS_SILICON_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
     done
@@ -942,6 +1063,12 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                 unpackArchive "$MACOS_BUILD_DIR/$ARCH/obj" $NAME
             done
         fi
+
+        if [[ -n $BUILD_MACOS_SILICON ]]; then
+            for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+                unpackArchive "$MACOS_SILICON_BUILD_DIR/$ARCH/obj" $NAME
+            done
+        fi
     done
 
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
@@ -956,6 +1083,11 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     if [[ -n $BUILD_MACOS ]]; then
         for ARCH in "${MACOS_ARCHS[@]}"; do
             rm "$MACOS_BUILD_DIR/$ARCH/libboost.a"
+        done
+    fi
+    if [[ -n $BUILD_MACOS_SILICON ]]; then
+        for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+            rm "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost.a"
         done
     fi
 
@@ -992,6 +1124,13 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             for ARCH in "${MACOS_ARCHS[@]}"; do
                 echo "...macos-$ARCH"
                 (cd_or_abort "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+            done
+        fi
+
+        if [[ -n $BUILD_MACOS_SILICON ]]; then
+            for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+                echo "...macos-silicon-$ARCH"
+                (cd_or_abort "$MACOS_SILICON_BUILD_DIR/$ARCH";  $MACOS_SILICON_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
             done
         fi
     done
@@ -1063,6 +1202,25 @@ buildUniversal()
             fi
         done
     fi
+    if [[ -n $BUILD_MACOS_SILICON ]]; then
+        mkdir -p "$MACOS_SILICON_BUILD_DIR/universal"
+
+        cd_or_abort "$MACOS_SILICON_BUILD_DIR"
+        for NAME in $BOOTSTRAP_LIBS; do
+            if [ "$NAME" == "test" ]; then
+                NAME="unit_test_framework"
+            fi
+
+            ARCH_FILES=()
+            for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+            done
+            if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
+                echo "... $NAME"
+                $MACOS_SILICON_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+            fi
+        done
+    fi
 }
 
 #===============================================================================
@@ -1108,23 +1266,49 @@ buildXCFramework()
             HEADERS_PATH="$INCLUDE_DIR"
         fi
     fi
-    if [[ -n $BUILD_MACOS ]]; then
-        for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.a; do
-            LIB_ARGS+=('-library' "$LIBPATH")
+    if [[ -n $BUILD_MACOS ]] || [[ -n $BUILD_MACOS_SILICON ]]; then
+        # all macOS binaries need to be lipo'd together before putting them in the xcframework.
+        # grab all the boost build files for macOS (e.g. i386, x86_64, arm64):
+        MACOS_BOOST_FILES=()
+        if [[ -n $BUILD_MACOS ]]; then
+            for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.a; do
+                MACOS_BOOST_FILES+=("$LIBPATH")
+            done
+        fi
+        if [[ -n $BUILD_MACOS_SILICON ]]; then
+            for LIBPATH in "$MACOS_SILICON_OUTPUT_DIR"/build/*/libboost.a; do
+                MACOS_BOOST_FILES+=("$LIBPATH")
+            done
+        fi
+        # if we have any mac files to add together...
+        if [ ${#MACOS_BOOST_FILES[@]} -gt 0 ]; then
+            # lipo the files together
+            mkdir -p "$MACOS_COMBINED_OUTPUT_DIR/build"
+            COMBINED_MACOS_BUILD="$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a"
+            lipo -create -output "$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a" "${MACOS_BOOST_FILES[@]}"
+            LIB_ARGS+=('-library' "$COMBINED_MACOS_BUILD")
             SLICES_COUNT=$((SLICES_COUNT + 1))
-        done
-
-        INCLUDE_DIR="$MACOS_OUTPUT_DIR/prefix/include"
-        if [ -d "$INCLUDE_DIR" ]; then
-            HEADERS_PATH="$INCLUDE_DIR"
+            # make sure headers are set up properly!
+            if [[ -n $BUILD_MACOS ]]; then
+                INCLUDE_DIR="$MACOS_OUTPUT_DIR/prefix/include"
+                if [ -d "$INCLUDE_DIR" ]; then
+                    HEADERS_PATH="$INCLUDE_DIR"
+                fi
+            fi
+            if [[ -n $BUILD_MACOS_SILICON ]]; then
+                INCLUDE_DIR="$MACOS_SILICON_OUTPUT_DIR/prefix/include"
+                if [ -d "$INCLUDE_DIR" ]; then
+                    HEADERS_PATH="$INCLUDE_DIR"
+                fi
+            fi
         fi
     fi
 
+    # create the xcframework file
     xcrun xcodebuild -create-xcframework \
         "${LIB_ARGS[@]}" \
         -headers "$HEADERS_PATH" \
         -output "$FRAMEWORK_BUNDLE"
-
 
     # Fix the 'Headers' directory location in the xcframework, and update the
     # Info.plist accordingly for all slices.
@@ -1146,10 +1330,11 @@ buildXCFramework()
 
 parseArgs "$@"
 
-if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS ]]; then
+if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS && -z $BUILD_MACOS_SILICON ]]; then
     BUILD_IOS=1
     BUILD_TVOS=1
     BUILD_MACOS=1
+    BUILD_MACOS_SILICON=1
 fi
 
 # Must set these after parseArgs to fill in overriden values
@@ -1171,6 +1356,7 @@ EXTRA_IOS_SIM_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mios-simulator-version-min=$
 EXTRA_TVOS_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mtvos-version-min=$MIN_TVOS_VERSION"
 EXTRA_TVOS_SIM_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mtvos-simulator-version-min=$MIN_TVOS_VERSION"
 EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
+EXTRA_MACOS_SILICON_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mmacosx-version-min=$MIN_MACOS_SILICON_VERSION"
 
 BOOST_VERSION2="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
@@ -1179,13 +1365,21 @@ OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
 IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
 TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
 MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos/$BUILD_VARIANT"
+MACOS_SILICON_OUTPUT_DIR="$OUTPUT_DIR/macos-silicon/$BUILD_VARIANT"
+MACOS_COMBINED_OUTPUT_DIR="$OUTPUT_DIR/macos-combined/$BUILD_VARIANT"
 IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
 TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
 MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
+MACOS_SILICON_BUILD_DIR="$MACOS_SILICON_OUTPUT_DIR/build"
 
 MACOS_ARCH_FLAGS=()
 for ARCH in "${MACOS_ARCHS[@]}"; do
     MACOS_ARCH_FLAGS+=("-arch $ARCH")
+done
+
+MACOS_SILICON_ARCH_FLAGS=()
+for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
+    MACOS_SILICON_ARCH_FLAGS+=("-arch $ARCH")
 done
 
 IOS_ARCH_FLAGS=()
@@ -1227,12 +1421,19 @@ printVar "MACOS_SDK_VERSION"
 printVar "MACOS_SDK_PATH"
 printVar "MIN_MACOS_VERSION"
 echo
+printVar "BUILD_MACOS_SILICON" "$(asBool "$BUILD_MACOS_SILICON")"
+printVar "MACOS_SILICON_ARCHS"
+printVar "MACOS_SILICON_SDK_VERSION"
+printVar "MACOS_SILICON_SDK_PATH"
+printVar "MIN_MACOS_SILICON_VERSION"
+echo
 printVar "BOOST_LIBS"
 printVar "BOOST_SRC"
 printVar "XCODE_ROOT"
 printVar "IOS_BUILD_DIR"
 printVar "TVOS_BUILD_DIR"
 printVar "MACOS_BUILD_DIR"
+printVar "MACOS_SILICON_BUILD_DIR"
 printVar "THREADS"
 printVar "BUILD_VARIANT"
 echo
@@ -1274,6 +1475,11 @@ if [[ -n $BUILD_MACOS ]]; then
     updateBoost "macOS"
     bootstrapBoost "macOS"
     buildBoost_macOS
+fi
+if [[ -n $BUILD_MACOS_SILICON ]]; then
+    updateBoost "macOSSilicon"
+    bootstrapBoost "macOSSilicon"
+    buildBoost_macOS_silicon
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
