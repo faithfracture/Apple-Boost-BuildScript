@@ -910,7 +910,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                 done
             else
                 cp "macos-build/stage/lib/libboost_$NAME.a" \
-                    "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                    "$MACOS_BUILD_DIR/${MACOS_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
     done
