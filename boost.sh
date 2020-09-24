@@ -31,7 +31,7 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.72.0
+BOOST_VERSION=1.73.0
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
 ALL_BOOST_LIBS_1_68="atomic chrono container context coroutine coroutine2
@@ -621,16 +621,16 @@ unpackBoost()
 
 patchBoost()
 {
-    echo "Patching boost in $BOOST_SRC"
-
-    if [ "$(version "$BOOST_VERSION")" -le "$(version "1.72.0")" ] &&
+    if [ "$(version "$BOOST_VERSION")" -le "$(version "1.73.0")" ] &&
        [ "$(version "$XCODE_VERSION")" -ge "$(version "11.4")" ]
     then
+        echo "Patching boost in $BOOST_SRC"
+
         # https://github.com/boostorg/build/pull/560
         (cd "$BOOST_SRC" && patch --forward -p1 -d "$BOOST_SRC/tools/build" < "$CURRENT_DIR/patches/xcode-11.4.patch")
-    fi
 
-    doneSection
+        doneSection
+    fi
 }
 
 #===============================================================================
@@ -640,9 +640,11 @@ inventMissingHeaders()
     # These files are missing in the ARM iPhoneOS SDK, but they are in the simulator.
     # They are supported on the device, so we copy them from x86 SDK to a staging area
     # to use them on ARM, too.
-    echo Invent missing headers
+    echo "Inventing missing headers"
 
     cp "$XCODE_ROOT/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator${IOS_SDK_VERSION}.sdk/usr/include/"{crt_externs,bzlib}.h "$BOOST_SRC"
+
+    doneSection
 }
 
 #===============================================================================
