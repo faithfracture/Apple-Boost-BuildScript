@@ -21,6 +21,8 @@
 #    MIN_TVOS_VERSION: Minimum iOS Target Version (e.g. 11.0)
 #    MACOS_SDK_VERSION: macOS SDK version (e.g. 10.14)
 #    MIN_MACOS_VERSION: Minimum macOS Target Version (e.g. 10.12)
+#    MAC_CATALYST_SDK_VERSION: macOS SDK version when building a Mac Catalyst app (e.g. 10.15)
+#    MIN_MAC_CATALYST_VERSION: Minimum iOS Target Version when building a Mac Catalyst app (e.g. 13.0)
 #
 # If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not
 # exist in the current directory, this script will attempt to download the
@@ -43,22 +45,14 @@ system test thread timer type_erasure wave"
 BOOTSTRAP_LIBS=""
 
 MIN_IOS_VERSION=11.0
-IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
-IOS_SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-IOSSIM_SDK_PATH=$(xcrun --sdk iphonesimulator --show-sdk-path)
-
 MIN_TVOS_VERSION=11.0
-TVOS_SDK_VERSION=$(xcrun --sdk appletvos --show-sdk-version)
-TVOS_SDK_PATH=$(xcrun --sdk appletvos --show-sdk-path)
-TVOSSIM_SDK_PATH=$(xcrun --sdk appletvsimulator --show-sdk-path)
-
 MIN_MACOS_VERSION=10.12
-MACOS_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
-MACOS_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+MIN_MAC_CATALYST_VERSION=13.0
 
 MACOS_ARCHS=("x86_64")
 IOS_ARCHS=("armv7" "arm64")
 IOS_SIM_ARCHS=("i386" "x86_64")
+MAC_CATALYST_ARCHS=("x86_64")
 
 # Applied to all platforms
 CXX_FLAGS=""
@@ -79,6 +73,7 @@ IOS_SIM_DEV_CMD="xcrun --sdk iphonesimulator"
 TVOS_DEV_CMD="xcrun --sdk appletvos"
 TVOS_SIM_DEV_CMD="xcrun --sdk appletvsimulator"
 MACOS_DEV_CMD="xcrun --sdk macosx"
+MAC_CATALYST_DEV_CMD="xcrun --sdk macosx"
 
 BUILD_VARIANT=release
 
@@ -96,6 +91,19 @@ sdkVersion()
 IOS_SDK_VERSION=$(sdkVersion iphoneos)
 TVOS_SDK_VERSION=$(sdkVersion appletvos)
 MACOS_SDK_VERSION=$(sdkVersion macosx)
+MAC_CATALYST_SDK_VERSION=$(sdkVersion macosx)
+
+sdkPath()
+{
+    xcrun --sdk "$1" --show-sdk-path
+}
+
+IOS_SDK_PATH=$(sdkPath iphoneos)
+IOSSIM_SDK_PATH=$(sdkPath iphonesimulator)
+TVOS_SDK_PATH=$(sdkPath appletvos)
+TVOSSIM_SDK_PATH=$(sdkPath appletvsimulator)
+MACOS_SDK_PATH=$(sdkPath macosx)
+MAC_CATALYST_SDK_PATH=$(sdkPath macosx)
 
 usage()
 {
@@ -122,6 +130,9 @@ OPTIONS:
 
     -tvos
         Build for the tvOS platform.
+
+    -mac-catalyst
+        Build for the Mac Catalyst platform (UIKit on Mac).
 
     --boost-version [num]
         Specify which version of Boost to build.
@@ -221,6 +232,18 @@ OPTIONS:
         Specify the macOS architectures to build for. Space-separate list.
         Defaults to ${MACOS_ARCHS[*]}
 
+    --mac-catalyst-sdk [num]
+        Specify the macOS SDK version to build the Mac Catalyst slice with.
+        Defaults to $MAC_CATALYST_SDK_VERSION
+
+    --min-mac-catalyst-version [num]
+        Specify the minimum iOS version to target for the Mac Catalyst slice.
+        Defaults to $MIN_MAC_CATALYST_VERSION
+
+    --macos-archs "(archs, ...)"
+        Specify the Mac Catalyst architectures to build for. Space-separate list.
+        Defaults to ${MAC_CATALYST_ARCHS[*]}
+
     --hidden-visibility
         Compile using -fvisibility=hidden and -fvisibility-inlines-hidden
 
@@ -304,6 +327,10 @@ parseArgs()
 
             -macos)
                 BUILD_MACOS=1
+                ;;
+
+            -mac-catalyst)
+                BUILD_MAC_CATALYST=1
                 ;;
 
             --boost-version)
@@ -396,6 +423,33 @@ parseArgs()
                 fi
                 ;;
 
+            --mac-catalyst-sdk)
+                 if [ -n "$2" ]; then
+                    MAC_CATALYST_SDK_VERSION=$2
+                    shift
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
+            --min-mac-catalyst-version)
+                if [ -n "$2" ]; then
+                    MIN_MAC_CATALYST_VERSION=$2
+                    shift
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
+            --mac-catalyst-archs)
+                if [ -n "$2" ]; then
+                    CUSTOM_MAC_CATALYST_ARCHS=$2
+                    shift;
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
             --hidden-visibility)
                 CXX_FLAGS="$CXX_FLAGS -fvisibility=hidden -fvisibility-inlines-hidden"
                 ;;
@@ -467,6 +521,10 @@ parseArgs()
         read -ra MACOS_ARCHS <<< "${CUSTOM_MACOS_ARCHS[@]}"
     fi
 
+    if [[ "${#CUSTOM_MAC_CATALYST_ARCHS[@]}" -gt 0 ]]; then
+        read -ra MAC_CATALYST_ARCHS <<< "${CUSTOM_MAC_CATALYST_ARCHS[@]}"
+    fi
+
     if [[ "${#CUSTOM_IOS_ARCHS[@]}" -gt 0 ]]; then
         read -ra IOS_ARCHS <<< "${CUSTOM_IOS_ARCHS[@]}"
         IOS_SIM_ARCHS=()
@@ -516,6 +574,10 @@ cleanup()
     if [[ -n $BUILD_MACOS ]]; then
         rm -r "$BOOST_SRC/macos-build"
         rm -r "$MACOS_OUTPUT_DIR"
+    fi
+    if [[ -n $BUILD_MAC_CATALYST ]]; then
+        rm -r "$BOOST_SRC/mac-catalyst-build"
+        rm -r "$MAC_CATALYST_OUTPUT_DIR"
     fi
 
     doneSection
@@ -641,6 +703,15 @@ using darwin : $COMPILER_VERSION~macos
   <cxxflags>"$CXX_FLAGS"
   <linkflags>"$LD_FLAGS"
   <compileflags>"$OTHER_FLAGS ${MACOS_ARCH_FLAGS[*]} $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH"
+  <threading>multi
+;
+using darwin : $COMPILER_VERSION~maccatalyst
+: $COMPILER
+: <architecture>x86
+  <target-os>darwin
+  <cxxflags>"$CXX_FLAGS"
+  <linkflags>"$LD_FLAGS"
+  <compileflags>"$OTHER_FLAGS ${MAC_CATALYST_ARCH_FLAGS[*]} $EXTRA_MAC_CATALYST_FLAGS -isysroot $MAC_CATALYST_SDK_PATH -target x86_64-apple-ios$MIN_MAC_CATALYST_VERSION-macabi"
   <threading>multi
 ;
 $USING_MPI
@@ -806,6 +877,37 @@ buildBoost_macOS()
     doneSection
 }
 
+buildBoost_mac_catalyst()
+{
+    cd_or_abort "$BOOST_SRC"
+    mkdir -p "$MAC_CATALYST_OUTPUT_DIR"
+
+    echo Building Boost for Mac Catalyst
+    # Install this one so we can copy the headers for the frameworks...
+    ./b2 "$THREADS" \
+        --build-dir=mac-catalyst-build \
+        --stagedir=mac-catalyst-build/stage \
+        --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
+        toolset="darwin-$COMPILER_VERSION~maccatalyst" \
+        link=static \
+        variant=${BUILD_VARIANT} \
+        stage >> "${MAC_CATALYST_OUTPUT_DIR}/mac-catalyst-build.log" 2>&1
+    # shellcheck disable=SC2181
+    if [ $? != 0 ]; then echo "Error staging Mac Catalyst. Check log."; exit 1; fi
+
+    ./b2 "$THREADS" \
+        --build-dir=mac-catalyst-build \
+        --stagedir=mac-catalyst-build/stage \
+        --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
+        toolset="darwin-$COMPILER_VERSION~maccatalyst" \
+        link=static \
+        variant=${BUILD_VARIANT} \
+        install >> "${MAC_CATALYST_OUTPUT_DIR}/mac-catalyst-build.log" 2>&1
+    # shellcheck disable=SC2181
+    if [ $? != 0 ]; then echo "Error installing Mac Catalyst. Check log."; exit 1; fi
+    doneSection
+}
+
 #===============================================================================
 
 unpackArchive()
@@ -863,6 +965,13 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         done
     fi
 
+    if [[ -n $BUILD_MAC_CATALYST ]]; then
+        # Mac Catalyst
+        for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+            mkdir -p "$MAC_CATALYST_BUILD_DIR/$ARCH/obj"
+        done
+    fi
+
     ALL_LIBS=""
 
     echo Splitting all existing fat binaries...
@@ -915,6 +1024,18 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                     "$MACOS_BUILD_DIR/${MACOS_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
+
+        if [[ -n $BUILD_MAC_CATALYST ]]; then
+            if [[ "${#MAC_CATALYST_ARCHS[@]}" -gt 1 ]]; then
+                for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+                    $MAC_CATALYST_DEV_CMD lipo "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
+                        -thin "$ARCH" -o "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                done
+            else
+                cp "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
+                    "$MAC_CATALYST_BUILD_DIR/${MAC_CATALYST_ARCHS[0]}/libboost_$NAME.a"
+            fi
+        fi
     done
 
     echo "Decomposing each architecture's .a files"
@@ -944,6 +1065,12 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                 unpackArchive "$MACOS_BUILD_DIR/$ARCH/obj" $NAME
             done
         fi
+
+        if [[ -n $BUILD_MAC_CATALYST ]]; then
+            for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+                unpackArchive "$MAC_CATALYST_BUILD_DIR/$ARCH/obj" $NAME
+            done
+        fi
     done
 
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
@@ -960,6 +1087,11 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             rm "$MACOS_BUILD_DIR/$ARCH/libboost.a"
         done
     fi
+    if [[ -n $BUILD_MAC_CATALYST ]]; then
+        for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+            rm "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost.a"
+        done
+    fi
 
     for NAME in $BOOTSTRAP_LIBS; do
         if [ "$NAME" == "test" ]; then
@@ -967,9 +1099,6 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
 
         echo "Archiving $NAME"
-
-        # The obj/$NAME/*.o below should all be quoted, but I couldn't figure out how to do that elegantly.
-        # Boost lib names probably won't contain non-word characters any time soon, though. ;) - Jan
 
         if [[ -n $BUILD_IOS ]]; then
             for ARCH in "${IOS_ARCHS[@]}"; do
@@ -994,6 +1123,13 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             for ARCH in "${MACOS_ARCHS[@]}"; do
                 echo "...macos-$ARCH"
                 (cd_or_abort "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+            done
+        fi
+
+        if [[ -n $BUILD_MAC_CATALYST ]]; then
+            for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+                echo "...mac-catalyst-$ARCH"
+                (cd_or_abort "$MAC_CATALYST_BUILD_DIR/$ARCH";  $MAC_CATALYST_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
             done
         fi
     done
@@ -1065,6 +1201,25 @@ buildUniversal()
             fi
         done
     fi
+    if [[ -n $BUILD_MAC_CATALYST ]]; then
+        mkdir -p "$MAC_CATALYST_BUILD_DIR/universal"
+
+        cd_or_abort "$MAC_CATALYST_BUILD_DIR"
+        for NAME in $BOOTSTRAP_LIBS; do
+            if [ "$NAME" == "test" ]; then
+                NAME="unit_test_framework"
+            fi
+
+            ARCH_FILES=()
+            for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+            done
+            if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
+                echo "... $NAME"
+                $MAC_CATALYST_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+            fi
+        done
+    fi
 }
 
 #===============================================================================
@@ -1121,6 +1276,17 @@ buildXCFramework()
             HEADERS_PATH="$INCLUDE_DIR"
         fi
     fi
+    if [[ -n $BUILD_MAC_CATALYST ]]; then
+        for LIBPATH in "$MAC_CATALYST_OUTPUT_DIR"/build/*/libboost.a; do
+            LIB_ARGS+=('-library' "$LIBPATH")
+            SLICES_COUNT=$((SLICES_COUNT + 1))
+        done
+
+        INCLUDE_DIR="$MAC_CATALYST_OUTPUT_DIR/prefix/include"
+        if [ -d "$INCLUDE_DIR" ]; then
+            HEADERS_PATH="$INCLUDE_DIR"
+        fi
+    fi
 
     xcrun xcodebuild -create-xcframework \
         "${LIB_ARGS[@]}" \
@@ -1148,10 +1314,11 @@ buildXCFramework()
 
 parseArgs "$@"
 
-if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS ]]; then
+if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS && -z $BUILD_MAC_CATALYST ]]; then
     BUILD_IOS=1
     BUILD_TVOS=1
     BUILD_MACOS=1
+    BUILD_MAC_CATALYST=1
 fi
 
 # Must set these after parseArgs to fill in overriden values
@@ -1181,13 +1348,20 @@ OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
 IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
 TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
 MACOS_OUTPUT_DIR="$OUTPUT_DIR/macos/$BUILD_VARIANT"
+MAC_CATALYST_OUTPUT_DIR="$OUTPUT_DIR/mac-catalyst/$BUILD_VARIANT"
 IOS_BUILD_DIR="$IOS_OUTPUT_DIR/build"
 TVOS_BUILD_DIR="$TVOS_OUTPUT_DIR/build"
 MACOS_BUILD_DIR="$MACOS_OUTPUT_DIR/build"
+MAC_CATALYST_BUILD_DIR="$MAC_CATALYST_OUTPUT_DIR/build"
 
 MACOS_ARCH_FLAGS=()
 for ARCH in "${MACOS_ARCHS[@]}"; do
     MACOS_ARCH_FLAGS+=("-arch $ARCH")
+done
+
+MAC_CATALYST_ARCH_FLAGS=()
+for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+    MAC_CATALYST_ARCH_FLAGS+=("-arch $ARCH")
 done
 
 IOS_ARCH_FLAGS=()
@@ -1229,12 +1403,19 @@ printVar "MACOS_SDK_VERSION"
 printVar "MACOS_SDK_PATH"
 printVar "MIN_MACOS_VERSION"
 echo
+printVar "BUILD_MAC_CATALYST" "$(asBool "$BUILD_MAC_CATALYST")"
+printVar "MAC_CATALYST_ARCHS"
+printVar "MAC_CATALYST_SDK_VERSION"
+printVar "MAC_CATALYST_SDK_PATH"
+printVar "MIN_MAC_CATALYST_VERSION"
+echo
 printVar "BOOST_LIBS"
 printVar "BOOST_SRC"
 printVar "XCODE_ROOT"
 printVar "IOS_BUILD_DIR"
 printVar "TVOS_BUILD_DIR"
 printVar "MACOS_BUILD_DIR"
+printVar "MAC_CATALYST_BUILD_DIR"
 printVar "THREADS"
 printVar "BUILD_VARIANT"
 echo
@@ -1261,21 +1442,23 @@ downloadBoost
 unpackBoost
 inventMissingHeaders
 patchBoost
+updateBoost
 
 if [[ -n $BUILD_IOS ]]; then
-    updateBoost "iOS"
     bootstrapBoost "iOS"
     buildBoost_iOS
 fi
 if [[ -n $BUILD_TVOS ]]; then
-    updateBoost "tvOS"
     bootstrapBoost "tvOS"
     buildBoost_tvOS
 fi
 if [[ -n $BUILD_MACOS ]]; then
-    updateBoost "macOS"
     bootstrapBoost "macOS"
     buildBoost_macOS
+fi
+if [[ -n $BUILD_MAC_CATALYST ]]; then
+    bootstrapBoost "iOS"
+    buildBoost_mac_catalyst
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
