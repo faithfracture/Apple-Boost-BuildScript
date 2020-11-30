@@ -351,6 +351,8 @@ parseArgs()
 
             -macossilicon)
                 BUILD_MACOS_SILICON=1
+                ;;
+
             -mac-catalyst)
                 BUILD_MAC_CATALYST=1
                 ;;
@@ -466,6 +468,11 @@ parseArgs()
             --macos-silicon-archs)
                 if [ -n "$2" ]; then
                     CUSTOM_MACOS_SILICON_ARCHS=$2
+                else
+                    missingParameter "$1"
+                fi
+                ;;
+
             --mac-catalyst-sdk)
                  if [ -n "$2" ]; then
                     MAC_CATALYST_SDK_VERSION=$2
@@ -566,6 +573,8 @@ parseArgs()
 
     if [[ "${#CUSTOM_MACOS_SILICON_ARCHS[@]}" -gt 0 ]]; then
         read -ra MACOS_SILICON_ARCHS <<< "${CUSTOM_MACOS_SILICON_ARCHS[@]}"
+    fi
+
     if [[ "${#CUSTOM_MAC_CATALYST_ARCHS[@]}" -gt 0 ]]; then
         read -ra MAC_CATALYST_ARCHS <<< "${CUSTOM_MAC_CATALYST_ARCHS[@]}"
     fi
@@ -764,6 +773,7 @@ using darwin : $COMPILER_VERSION~macossilicon
   <cxxflags>"$CXX_FLAGS"
   <linkflags>"$LD_FLAGS"
   <compileflags>"$OTHER_FLAGS ${MACOS_SILICON_ARCH_FLAGS[*]} $EXTRA_MACOS_SILICON_FLAGS -isysroot $MACOS_SILICON_SDK_PATH" -target arm64-apple-macos$MIN_MACOS_SILICON_VERSION
+;
 using darwin : $COMPILER_VERSION~maccatalyst
 : $COMPILER
 : <architecture>x86
@@ -1057,6 +1067,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         # macOS Silicon
         for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
             mkdir -p "$MACOS_SILICON_BUILD_DIR/$ARCH/obj"
+        done
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         # Mac Catalyst
