@@ -51,7 +51,9 @@ MIN_MAC_CATALYST_VERSION=13.0
 
 MACOS_ARCHS=("x86_64")
 IOS_ARCHS=("armv7" "arm64")
-IOS_SIM_ARCHS=("i386" "x86_64")
+IOS_SIM_ARCHS=("i386" "x86_64" "arm64")
+TVOS_ARCHS=("arm64")
+TVOS_SIM_ARCHS=("x86_64" "arm64")
 MAC_CATALYST_ARCHS=("x86_64")
 
 # Applied to all platforms
@@ -204,8 +206,8 @@ OPTIONS:
     --min-ios-version [num]
         Specify the minimum iOS version to target. Since iOS 11+ are 64-bit only,
         if the minimum iOS version is set to iOS 11.0 or later, iOS archs is
-        automatically set to 'arm64' and iOS Simulator archs is set to "x86_64",
-        unless '--ios-archs' is also specified.
+        automatically set to 'arm64' and iOS Simulator archs is set to ("x86_64"
+        "arm64") unless '--ios-archs' is also specified.
         Defaults to $MIN_IOS_VERSION
 
     --ios-archs "(archs, ...)"
@@ -533,16 +535,16 @@ parseArgs()
         if [[ "${IOS_ARCHS[*]}" =~ armv ]]; then
             IOS_SIM_ARCHS+=("i386")
         fi
-        # Add 64-bit simulator for 64-bit arm
+        # Add x86-64 and arm64 mac simulator for 64-bit arm iOS
         if [[ "${IOS_ARCHS[*]}" =~ arm64 ]]; then
-            IOS_SIM_ARCHS+=("x86_64")
+            IOS_SIM_ARCHS+=("x86_64" "arm64")
         fi
     else
         read -ra MIN_IOS_PARTS <<< "${MIN_IOS_VERSION//./ }"
         if [[ ${MIN_IOS_PARTS[0]} -ge 11 ]]; then
             # iOS 11 dropped support for 32bit devices
             IOS_ARCHS=("arm64")
-            IOS_SIM_ARCHS=("x86_64")
+            IOS_SIM_ARCHS=("x86_64" "arm64")
         fi
     fi
 }
@@ -684,7 +686,7 @@ using darwin : $COMPILER_VERSION~appletv
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
   <linkflags>"$LD_FLAGS"
-  <compileflags>"$OTHER_FLAGS -arch arm64 $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH"
+  <compileflags>"$OTHER_FLAGS ${TVOS_ARCH_FLAGS[*]} $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH"
   <threading>multi
 ;
 using darwin : $COMPILER_VERSION~appletvsim
@@ -693,7 +695,7 @@ using darwin : $COMPILER_VERSION~appletvsim
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
   <linkflags>"$LD_FLAGS"
-  <compileflags>"$OTHER_FLAGS -arch x86_64 $EXTRA_TVOS_SIM_FLAGS -isysroot $TVOSSIM_SDK_PATH"
+  <compileflags>"$OTHER_FLAGS ${TVOS_SIM_ARCH_FLAGS[*]} $EXTRA_TVOS_SIM_FLAGS -isysroot $TVOSSIM_SDK_PATH"
   <threading>multi
 ;
 using darwin : $COMPILER_VERSION~macos
@@ -941,21 +943,25 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
         for ARCH in "${IOS_ARCHS[@]}"; do
-            mkdir -p "$IOS_BUILD_DIR/$ARCH/obj"
+            mkdir -p "$IOS_BUILD_DIR/iphoneos/$ARCH/obj"
         done
 
         # iOS Simulator
         for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-            mkdir -p "$IOS_BUILD_DIR/$ARCH/obj"
+            mkdir -p "$IOS_BUILD_DIR/iphonesimulator/$ARCH/obj"
         done
     fi
 
     if [[ -n $BUILD_TVOS ]]; then
         # tvOS Device
-        mkdir -p "$TVOS_BUILD_DIR/arm64/obj"
+        for ARCH in "${TVOS_ARCHS[@]}"; do
+            mkdir -p "$TVOS_BUILD_DIR/appletvos/$ARCH/obj"
+        done
 
         # tvOS Simulator
-        mkdir -p "$TVOS_BUILD_DIR/x86_64/obj"
+        for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+            mkdir -p "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/obj"
+        done
     fi
 
     if [[ -n $BUILD_MACOS ]]; then
@@ -987,30 +993,44 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             if [[ "${#IOS_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${IOS_ARCHS[@]}"; do
                     $IOS_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost_$NAME.a"
                 done
             else
                 cp "iphone-build/stage/lib/libboost_$NAME.a" \
-                    "$IOS_BUILD_DIR/${IOS_ARCHS[0]}/libboost_$NAME.a"
+                    "$IOS_BUILD_DIR/iphoneos/${IOS_ARCHS[0]}/libboost_$NAME.a"
             fi
 
             if [[ "${#IOS_SIM_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${IOS_SIM_ARCHS[@]}"; do
                     $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$IOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost_$NAME.a"
                 done
             else
                 cp "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                    "$IOS_BUILD_DIR/${IOS_SIM_ARCHS[0]}/libboost_$NAME.a"
+                    "$IOS_BUILD_DIR/iphonesimulator/${IOS_SIM_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
-            cp "appletv-build/stage/lib/libboost_$NAME.a" \
-                "$TVOS_BUILD_DIR/arm64/libboost_$NAME.a"
+          if [[ "${#TVOS_ARCHS[@]}" -gt 1 ]]; then
+              for ARCH in "${TVOS_ARCHS[@]}"; do
+                  $TVOS_DEV_CMD lipo "appletv-build/stage/lib/libboost_$NAME.a" \
+                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost_$NAME.a"
+              done
+          else
+              cp "appletv-build/stage/lib/libboost_$NAME.a" \
+                  "$TVOS_BUILD_DIR/appletvos/${TVOS_ARCHS[0]}/libboost_$NAME.a"
+          fi
 
-            cp "appletvsim-build/stage/lib/libboost_$NAME.a" \
-                "$TVOS_BUILD_DIR/x86_64/libboost_$NAME.a"
+          if [[ "${#TVOS_SIM_ARCHS[@]}" -gt 1 ]]; then
+              for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+                  $TVOS_SIM_DEV_CMD lipo "appletvsim-build/stage/lib/libboost_$NAME.a" \
+                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost_$NAME.a"
+              done
+          else
+              cp "appletvsim-build/stage/lib/libboost_$NAME.a" \
+                  "$TVOS_BUILD_DIR/appletvsimulator/${TVOS_SIM_ARCHS[0]}/libboost_$NAME.a"
+          fi
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
@@ -1048,16 +1068,20 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         echo "Decomposing libboost_${NAME}.a"
         if [[ -n $BUILD_IOS ]]; then
             for ARCH in "${IOS_ARCHS[@]}"; do
-                unpackArchive "$IOS_BUILD_DIR/$ARCH/obj" $NAME
+                unpackArchive "$IOS_BUILD_DIR/iphoneos/$ARCH/obj" $NAME
             done
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-                unpackArchive "$IOS_BUILD_DIR/$ARCH/obj" $NAME
+                unpackArchive "$IOS_BUILD_DIR/iphonesimulator/$ARCH/obj" $NAME
             done
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
-            unpackArchive "$TVOS_BUILD_DIR/arm64/obj" $NAME
-            unpackArchive "$TVOS_BUILD_DIR/x86_64/obj" $NAME
+            for ARCH in "${TVOS_ARCHS[@]}"; do
+                unpackArchive "$TVOS_BUILD_DIR/appletvos/$ARCH/obj" $NAME
+            done
+            for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+                unpackArchive "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/obj" $NAME
+            done
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
@@ -1076,11 +1100,23 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
     if [[ -n $BUILD_IOS ]]; then
         for ARCH in "${IOS_ARCHS[@]}"; do
-            rm "$IOS_BUILD_DIR/$ARCH/libboost.a"
+            rm "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.a"
         done
+        rm "$IOS_BUILD_DIR/iphoneos/libboost.a"
+        for ARCH in "${IOS_SIM_ARCHS[@]}"; do
+            rm "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.a"
+        done
+        rm "$IOS_BUILD_DIR/iphonesimulator/libboost.a"
     fi
     if [[ -n $BUILD_TVOS ]]; then
-        rm "$TVOS_BUILD_DIR"/*/libboost.a
+        for ARCH in "${TVOS_ARCHS[@]}"; do
+            rm "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.a"
+        done
+        rm "$TVOS_BUILD_DIR/appletvos/libboost.a"
+        for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+            rm "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.a"
+        done
+        rm "$TVOS_BUILD_DIR/appletvsimulator/libboost.a"
     fi
     if [[ -n $BUILD_MACOS ]]; then
         for ARCH in "${MACOS_ARCHS[@]}"; do
@@ -1103,20 +1139,25 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         if [[ -n $BUILD_IOS ]]; then
             for ARCH in "${IOS_ARCHS[@]}"; do
                 echo "...ios-$ARCH"
-                (cd_or_abort "$IOS_BUILD_DIR/$ARCH"; $IOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$IOS_BUILD_DIR/iphoneos/$ARCH"; $IOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
             done
 
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
                 echo "...ios-sim-$ARCH"
-                (cd_or_abort "$IOS_BUILD_DIR/$ARCH"; $IOS_SIM_ARM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$IOS_BUILD_DIR/iphonesimulator/$ARCH"; $IOS_SIM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
             done
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
-            echo "...tvOS-arm64"
-            (cd_or_abort "$TVOS_BUILD_DIR/arm64"; $TVOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
-            echo "...tvOS-x86_64"
-            (cd_or_abort "$TVOS_BUILD_DIR/x86_64";  $TVOS_SIM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+            for ARCH in "${TVOS_ARCHS[@]}"; do
+                echo "...tvOS-$ARCH"
+                (cd_or_abort "$TVOS_BUILD_DIR/appletvos/$ARCH"; $TVOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+            done
+
+            for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+                echo "...tvOS-sim-$ARCH"
+                (cd_or_abort "$TVOS_BUILD_DIR/appletvsimulator/$ARCH"; $TVOS_SIM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+            done
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
@@ -1149,10 +1190,10 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${IOS_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("iphoneos/$ARCH/libboost_$NAME.a")
             done
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("iphonesimulator/$ARCH/libboost_$NAME.a")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
@@ -1170,12 +1211,12 @@ buildUniversal()
             fi
 
             ARCH_FILES=()
-            if [ -f "arm64/libboost_$NAME.a" ]; then
-                ARCH_FILES+=("arm64/libboost_$NAME.a")
-            fi
-            if [ -f "x86_64/libboost_$NAME.a" ]; then
-                ARCH_FILES+=("x86_64/libboost_$NAME.a")
-            fi
+            for ARCH in "${TVOS_ARCHS[@]}"; do
+                ARCH_FILES+=("appletvos/$ARCH/libboost_$NAME.a")
+            done
+            for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+                ARCH_FILES+=("appletvsimulator/$ARCH/libboost_$NAME.a")
+            done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
                 $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
@@ -1244,6 +1285,20 @@ buildXCFramework()
     # archs / plaforms.
     HEADERS_PATH=""
     if [[ -n $BUILD_IOS ]]; then
+        echo "Re-lipo iOS Device libs"
+        ARCH_FILES=()
+        for ARCH in "${IOS_ARCHS[@]}"; do
+            ARCH_FILES+=("$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.a")
+        done
+        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphoneos/libboost.a" || abort "iOS Device Lipo failed"
+
+        echo "Re-lipo iOS Simulator libs"
+        ARCH_FILES=()
+        for ARCH in "${IOS_SIM_ARCHS[@]}"; do
+            ARCH_FILES+=("$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.a")
+        done
+        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphonesimulator/libboost.a" || abort "iOS Simulator Lipo failed"
+      
         for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.a; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
@@ -1255,6 +1310,20 @@ buildXCFramework()
         fi
     fi
     if [[ -n $BUILD_TVOS ]]; then
+        echo "Re-lipo tvOS Device libs"
+        ARCH_FILES=()
+        for ARCH in "${TVOS_ARCHS[@]}"; do
+            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.a")
+        done
+        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvos/libboost.a" || abort "tvOS Device Lipo failed"
+
+        echo "Re-lipo tvOS Simulator libs"
+        ARCH_FILES=()
+        for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.a")
+        done
+        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvsimulator/libboost.a" || abort "tvOS Simulator Lipo failed"
+      
         for LIBPATH in "$TVOS_OUTPUT_DIR"/build/*/libboost.a; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
@@ -1372,6 +1441,16 @@ done
 IOS_SIM_ARCH_FLAGS=()
 for ARCH in "${IOS_SIM_ARCHS[@]}"; do
     IOS_SIM_ARCH_FLAGS+=("-arch $ARCH")
+done
+
+TVOS_ARCH_FLAGS=()
+for ARCH in "${TVOS_ARCHS[@]}"; do
+    TVOS_ARCH_FLAGS+=("-arch $ARCH")
+done
+
+TVOS_SIM_ARCH_FLAGS=()
+for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
+    TVOS_SIM_ARCH_FLAGS+=("-arch $ARCH")
 done
 
 printVar()
