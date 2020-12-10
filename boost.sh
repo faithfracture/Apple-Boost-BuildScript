@@ -1699,6 +1699,7 @@ if [[ -n "$PURGE" ]]; then
     rm -r boost_*.tar.bz2
     rm -r build
     rm -r src
+    rm -r dist
     echo "Done"
     exit 0
 fi
