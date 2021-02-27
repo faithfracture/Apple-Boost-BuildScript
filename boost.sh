@@ -745,14 +745,20 @@ updateBoostUserConfigJam()
         USING_MPI="using mpi ;" # trailing space needed
     fi
 
+    COMMON_FLAGS_IOS="$OTHER_FLAGS ${IOS_ARCH_FLAGS[*]} $EXTRA_IOS_FLAGS -isysroot $IOS_SDK_PATH"
+    COMMON_FLAGS_IOS_SIM="$OTHER_FLAGS ${IOS_SIM_ARCH_FLAGS[*]} $EXTRA_IOS_SIM_FLAGS -isysroot $IOSSIM_SDK_PATH"
+
+    COMMON_FLAGS_TVOS="$OTHER_FLAGS ${TVOS_ARCH_FLAGS[*]} $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH"
+    COMMON_FLAGS_TVOS_SIM="$OTHER_FLAGS ${TVOS_SIM_ARCH_FLAGS[*]} $EXTRA_TVOS_SIM_FLAGS -isysroot $TVOSSIM_SDK_PATH"
+
     cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : $COMPILER_VERSION~iphone
 : $COMPILER
 : <architecture>arm
   <target-os>iphone
-  <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS -isysroot $IOS_SDK_PATH"
-  <compileflags>"$OTHER_FLAGS ${IOS_ARCH_FLAGS[*]} $EXTRA_IOS_FLAGS -isysroot $IOS_SDK_PATH"
+  <cxxflags>"$CXX_FLAGS $COMMON_FLAGS_IOS"
+  <linkflags>"$LD_FLAGS $COMMON_FLAGS_IOS"
+  <compileflags>"$COMMON_FLAGS_IOS"
   <threading>multi
 
 ;
@@ -760,27 +766,27 @@ using darwin : $COMPILER_VERSION~iphonesim
 : $COMPILER
 : <architecture>x86
   <target-os>iphone
-  <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS -isysroot $IOSSIM_SDK_PATH"
-  <compileflags>"$OTHER_FLAGS ${IOS_SIM_ARCH_FLAGS[*]} $EXTRA_IOS_SIM_FLAGS -isysroot $IOSSIM_SDK_PATH"
+  <cxxflags>"$CXX_FLAGS $COMMON_FLAGS_IOS_SIM"
+  <linkflags>"$LD_FLAGS $COMMON_FLAGS_IOS_SIM"
+  <compileflags>"$COMMON_FLAGS_IOS_SIM"
   <threading>multi
 ;
 using darwin : $COMPILER_VERSION~appletv
 : $COMPILER
 : <architecture>arm
   <target-os>iphone
-  <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS -isysroot $TVOS_SDK_PATH"
-  <compileflags>"$OTHER_FLAGS ${TVOS_ARCH_FLAGS[*]} $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH"
+  <cxxflags>"$CXX_FLAGS $COMMON_FLAGS_TVOS"
+  <linkflags>"$LD_FLAGS $COMMON_FLAGS_TVOS"
+  <compileflags>"$COMMON_FLAGS_TVOS"
   <threading>multi
 ;
 using darwin : $COMPILER_VERSION~appletvsim
 : $COMPILER
 : <architecture>x86
   <target-os>iphone
-  <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS -isysroot $TVOSSIM_SDK_PATH"
-  <compileflags>"$OTHER_FLAGS ${TVOS_SIM_ARCH_FLAGS[*]} $EXTRA_TVOS_SIM_FLAGS -isysroot $TVOSSIM_SDK_PATH"
+  <cxxflags>"$CXX_FLAGS $COMMON_FLAGS_TVOS_SIM"
+  <linkflags>"$LD_FLAGS $COMMON_FLAGS_TVOS_SIM"
+  <compileflags>"$COMMON_FLAGS_TVOS_SIM"
   <threading>multi
 ;
 using darwin : $COMPILER_VERSION~macos
