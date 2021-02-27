@@ -704,16 +704,20 @@ unpackBoost()
 
 patchBoost()
 {
+    BOOST_BUILD_DIR="$BOOST_SRC/tools/build"
     if [ "$(version "$BOOST_VERSION")" -le "$(version "1.73.0")" ] &&
        [ "$(version "$XCODE_VERSION")" -ge "$(version "11.4")" ]
     then
         echo "Patching boost in $BOOST_SRC"
 
         # https://github.com/boostorg/build/pull/560
-        (cd "$BOOST_SRC" && patch --forward -p1 -d "$BOOST_SRC/tools/build" < "$CURRENT_DIR/patches/xcode-11.4.patch")
+        (cd "$BOOST_SRC" && patch --forward -p1 -d "$BOOST_BUILD_DIR" < "$CURRENT_DIR/patches/xcode-11.4.patch")
 
         doneSection
     fi
+
+    # fixes boost passing `-arch arm` to linker which fails due to attempt to use armv4t
+    sed -i '' -e "s/options = -arch arm ;/#options = -arch arm ;/" "$BOOST_BUILD_DIR/src/tools/darwin.jam"
 }
 
 #===============================================================================
