@@ -1514,7 +1514,8 @@ EXTRA_FLAGS="-fembed-bitcode -Wno-unused-local-typedef -Wno-nullability-complete
 # Note these flags (BOOST_AC_USE_PTHREADS and BOOST_SP_USE_PTHREADS) should
 # only be defined for arm targets. They will cause random (but repeatable)
 # shared_ptr crashes on macOS in boost thread destructors.
-EXTRA_ARM_FLAGS="-DBOOST_AC_USE_PTHREADS -DBOOST_SP_USE_PTHREADS -g -DNDEBUG"
+# Latest incarnation uses SPINLOCK instead as this seems to work better on iOS
+EXTRA_ARM_FLAGS="-DBOOST_SP_USE_SPINLOCK -g -DNDEBUG"
 
 EXTRA_IOS_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mios-version-min=$MIN_IOS_VERSION"
 EXTRA_IOS_SIM_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mios-simulator-version-min=$MIN_IOS_VERSION"
