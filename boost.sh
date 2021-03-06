@@ -33,7 +33,7 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.73.0
+BOOST_VERSION=1.75.0
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
 ALL_BOOST_LIBS_1_68="atomic chrono container context coroutine coroutine2
@@ -252,6 +252,7 @@ OPTIONS:
     --macos-silicon-archs "(archs, ...)"
         Specify the macOS Apple Silicon architectures to build for. Space-separate list.
         Defaults to ${MACOS_SILICON_ARCHS[*]}
+        
     --mac-catalyst-sdk [num]
         Specify the macOS SDK version to build the Mac Catalyst slice with.
         Defaults to $MAC_CATALYST_SDK_VERSION
@@ -613,7 +614,7 @@ doneSection()
 
 cleanup()
 {
-    echo Cleaning everything
+    echo "Cleaning everything (any \"No such file or directory\" messages are fine)"
 
     if [[ -n $BUILD_IOS ]]; then
         rm -r "$BOOST_SRC/iphone-build"
@@ -640,7 +641,7 @@ cleanup()
         rm -r "$BOOST_SRC/mac-catalyst-build"
         rm -r "$MAC_CATALYST_OUTPUT_DIR"
     fi
-
+    echo
     doneSection
 }
 
@@ -973,6 +974,8 @@ buildBoost_macOS_silicon()
         install >> "${MACOS_SILICON_OUTPUT_DIR}/macos-silicon-build.log" 2>&1
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error installing macOS silicon. Check log."; exit 1; fi
+    
+    doneSection
 }
 
 buildBoost_mac_catalyst()
@@ -1194,8 +1197,9 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             done
         fi
     done
-
+    echo
     echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
+    echo "Removing prior files (any \"No such file or directory\" messages are fine)"
     if [[ -n $BUILD_IOS ]]; then
         for ARCH in "${IOS_ARCHS[@]}"; do
             rm "$IOS_BUILD_DIR/$ARCH/libboost.a"
@@ -1266,6 +1270,8 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             done
         fi
     done
+        
+    doneSection
 }
 
 buildUniversal()
@@ -1374,6 +1380,8 @@ buildUniversal()
             fi
         done
     fi
+    
+    doneSection
 }
 
 #===============================================================================
@@ -1473,6 +1481,7 @@ buildXCFramework()
         "${LIB_ARGS[@]}" \
         -headers "$HEADERS_PATH" \
         -output "$FRAMEWORK_BUNDLE"
+    if [ $? != 0 ]; then echo "Error creating XCFramework. Check log."; exit 1; fi
 
     # Fix the 'Headers' directory location in the xcframework, and update the
     # Info.plist accordingly for all slices.
@@ -1568,41 +1577,52 @@ printVar()
 {
     VAR_NAME="$1"
     VALUE="${2:-${!1}}"
-    printf "%-20s: %s\n" "$VAR_NAME" "$VALUE"
+    printf "%-25s: %s\n" "$VAR_NAME" "$VALUE"
 }
 asBool() { test -n "$1" && echo "YES" || echo "NO"; }
 
 printVar "BOOST_VERSION"
 echo
 printVar "BUILD_IOS" "$(asBool "$BUILD_IOS")"
-printVar "IOS_ARCHS"
-printVar "IOS_SDK_VERSION"
-printVar "IOS_SDK_PATH"
-printVar "IOSSIM_SDK_PATH"
-printVar "MIN_IOS_VERSION"
+if [[ -n $BUILD_IOS ]]; then
+  printVar "IOS_ARCHS[@]"
+  printVar "IOS_SDK_VERSION"
+  printVar "IOS_SDK_PATH"
+  printVar "IOSSIM_SDK_PATH"
+  printVar "MIN_IOS_VERSION"
+fi
 echo
 printVar "BUILD_TVOS" "$(asBool "$BUILD_TVOS")"
-printVar "TVOS_SDK_VERSION"
-printVar "TVOS_SDK_PATH"
-printVar "TVOSSIM_SDK_PATH"
-printVar "MIN_TVOS_VERSION"
+if [[ -n $BUILD_TVOS ]]; then
+  printVar "TVOS_SDK_VERSION"
+  printVar "TVOS_SDK_PATH"
+  printVar "TVOSSIM_SDK_PATH"
+  printVar "MIN_TVOS_VERSION"
+fi
 echo
 printVar "BUILD_MACOS" "$(asBool "$BUILD_MACOS")"
-printVar "MACOS_ARCHS"
-printVar "MACOS_SDK_VERSION"
-printVar "MACOS_SDK_PATH"
-printVar "MIN_MACOS_VERSION"
+if [[ -n $BUILD_MACOS ]]; then
+  printVar "MACOS_ARCHS[@]"
+  printVar "MACOS_SDK_VERSION"
+  printVar "MACOS_SDK_PATH"
+  printVar "MIN_MACOS_VERSION"
+fi
 echo
 printVar "BUILD_MACOS_SILICON" "$(asBool "$BUILD_MACOS_SILICON")"
-printVar "MACOS_SILICON_ARCHS"
-printVar "MACOS_SILICON_SDK_VERSION"
-printVar "MACOS_SILICON_SDK_PATH"
-printVar "MIN_MACOS_SILICON_VERSION"
+if [[ -n $BUILD_MACOS_SILICON ]]; then
+  printVar "MACOS_SILICON_ARCHS[@]"
+  printVar "MACOS_SILICON_SDK_VERSION"
+  printVar "MACOS_SILICON_SDK_PATH"
+  printVar "MIN_MACOS_SILICON_VERSION"
+fi
+echo
 printVar "BUILD_MAC_CATALYST" "$(asBool "$BUILD_MAC_CATALYST")"
-printVar "MAC_CATALYST_ARCHS"
-printVar "MAC_CATALYST_SDK_VERSION"
-printVar "MAC_CATALYST_SDK_PATH"
-printVar "MIN_MAC_CATALYST_VERSION"
+if [[ -n $BUILD_MAC_CATALYST ]]; then
+  printVar "MAC_CATALYST_ARCHS[@]"
+  printVar "MAC_CATALYST_SDK_VERSION"
+  printVar "MAC_CATALYST_SDK_PATH"
+  printVar "MIN_MAC_CATALYST_VERSION"
+fi
 echo
 printVar "BOOST_LIBS"
 printVar "BOOST_SRC"
@@ -1663,6 +1683,7 @@ if [[ -n $BUILD_MAC_CATALYST ]]; then
 fi
 
 scrunchAllLibsTogetherInOneLibPerPlatform
+
 if [[ -n $UNIVERSAL ]]; then
     buildUniversal
 fi
