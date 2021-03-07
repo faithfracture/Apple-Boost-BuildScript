@@ -1,3 +1,13 @@
+-- 2021-03-06 --
+* SPINLOCK fix for iOS
+* Logging formatting fixes
+* Updated usage statement
+* Updated default boost version to 1.75.0
+* Fix for 32/64 bit iOS conflict in XCFramework
+
+-- 2020-12-08 --
+* Added support for Apple Silicon
+
 -- 2020-05-31 --
 * Cleanup build commands and patch of Boost's user-config.jam
 
