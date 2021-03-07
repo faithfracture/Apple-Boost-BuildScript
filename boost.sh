@@ -1561,8 +1561,8 @@ buildXCFramework()
     xcrun xcodebuild -create-xcframework \
         "${LIB_ARGS[@]}" \
         -headers "$HEADERS_PATH" \
-        -output "$FRAMEWORK_BUNDLE"
-    if [ $? != 0 ]; then echo "Error creating XCFramework. Check log."; exit 1; fi
+        -output "$FRAMEWORK_BUNDLE" \
+        || abort "Error creating XCFramework. Check log."
 
     # Fix the 'Headers' directory location in the xcframework, and update the
     # Info.plist accordingly for all slices.
