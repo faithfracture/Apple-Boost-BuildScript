@@ -49,7 +49,7 @@ BOOTSTRAP_LIBS=""
 MIN_IOS_VERSION=11.0
 MIN_TVOS_VERSION=11.0
 MIN_MACOS_VERSION=10.12
-MIN_MACOS_SILICON_VERSION=11
+MIN_MACOS_SILICON_VERSION=11.0
 MACOS_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
 MACOS_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
 MIN_MAC_CATALYST_VERSION=13.0
@@ -118,13 +118,14 @@ usage()
 {
 cat << EOF
 usage: $0 [{-ios,-tvos,-macos} ...] options
-Build Boost for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS
+Build Boost for iOS, iOS Simulator, Catalyst, tvOS, tvOS Simulator, macOS, and macOS Silicon
 The -ios, -tvos, and -macOS options may be specified together. Default
 is to build all of them.
 
 Examples:
     ./boost.sh -ios -tvos --boost-version 1.68.0
     ./boost.sh -macos --no-framework
+    ./boost.sh -mac-catalyst -ios --boost-libs "filesystem date_time"
     ./boost.sh --clean
 
 OPTIONS:
@@ -136,6 +137,9 @@ OPTIONS:
 
     -macos
         Build for the macOS platform.
+
+    -macossilicon
+        Build for macOS Apple Silicon platform.
 
     -tvos
         Build for the tvOS platform.
@@ -1072,6 +1076,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             mkdir -p "$MACOS_SILICON_BUILD_DIR/$ARCH/obj"
         done
     fi
+    
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         # Mac Catalyst
         for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
