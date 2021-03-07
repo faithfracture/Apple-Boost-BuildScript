@@ -1391,6 +1391,13 @@ buildUniversal()
 
 #===============================================================================
 
+elementIn () {
+    local e match="$1"
+    shift
+    for e; do [[ "$e" == "$match" ]] && return 0; done
+    return 1
+}
+
 buildXCFramework()
 {
     : "${1:?}"
@@ -1411,7 +1418,36 @@ buildXCFramework()
     # archs / plaforms.
     HEADERS_PATH=""
     if [[ -n $BUILD_IOS ]]; then
+        if elementIn "arm64" "${IOS_ARCHS[@]}" && \
+           elementIn "armv7" "${IOS_ARCHS[@]}"; then
+           echo "Combining arm64 and armv7 archives"
+          # armv7 and arm64 binaries need to be lipo'd together before putting them in the xcframework.
+            IOS_BOOST_FILES=( "$IOS_OUTPUT_DIR/build/arm64/libboost.a" \
+                              "$IOS_OUTPUT_DIR/build/armv7/libboost.a" )
+      
+            # lipo the files together
+            mkdir -p "$IOS_OUTPUT_DIR/build/armcombined"
+            COMBINED_IOS_BUILD="$IOS_OUTPUT_DIR/build/armcombined/libboost.a"
+            lipo -create -output "$COMBINED_IOS_BUILD" "${IOS_BOOST_FILES[@]}"
+        fi
+        if elementIn "i386"   "${IOS_SIM_ARCHS[@]}" && \
+           elementIn "x86_64" "${IOS_SIM_ARCHS[@]}"; then
+          # i386 and x86_64 binaries need to be lipo'd together before putting them in the xcframework.
+            echo "Combining i386 and x86_64 archives"
+            SIM_BOOST_FILES=( "$IOS_OUTPUT_DIR/build/i386/libboost.a" \
+                              "$IOS_OUTPUT_DIR/build/x86_64/libboost.a" )
+      
+            # lipo the files together
+            mkdir -p "$IOS_OUTPUT_DIR/build/simcombined"
+            COMBINED_SIM_BUILD="$IOS_OUTPUT_DIR/build/simcombined/libboost.a"
+            lipo -create -output "$COMBINED_SIM_BUILD" "${SIM_BOOST_FILES[@]}"
+        fi
+
         for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.a; do
+            # skip previously combined libraries
+            if elementIn "$LIBPATH" "${IOS_BOOST_FILES[@]}"; then continue; fi
+            if elementIn "$LIBPATH" "${SIM_BOOST_FILES[@]}"; then continue; fi
+            echo "adding $LIBPATH to framework"
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
         done
@@ -1678,7 +1714,6 @@ if [[ -n $BUILD_MACOS ]]; then
     buildBoost_macOS
 fi
 if [[ -n $BUILD_MACOS_SILICON ]]; then
-    updateBoost "macOSSilicon"
     bootstrapBoost "macOSSilicon"
     buildBoost_macOS_silicon
 fi
