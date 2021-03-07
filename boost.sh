@@ -1432,13 +1432,6 @@ buildUniversal()
 
 #===============================================================================
 
-elementIn () {
-    local e match="$1"
-    shift
-    for e; do [[ "$e" == "$match" ]] && return 0; done
-    return 1
-}
-
 buildXCFramework()
 {
     : "${1:?}"
@@ -1511,6 +1504,7 @@ buildXCFramework()
     if [[ -n $BUILD_MACOS ]] || [[ -n $BUILD_MACOS_SILICON ]]; then
         # all macOS binaries need to be lipo'd together before putting them in the xcframework.
         # grab all the boost build files for macOS (e.g. i386, x86_64, arm64):
+        echo "Re-lipo MacOS Device libs"
         MACOS_BOOST_FILES=()
         if [[ -n $BUILD_MACOS ]]; then
             for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.a; do
