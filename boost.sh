@@ -60,7 +60,7 @@ IOS_ARCHS=("armv7" "arm64")
 IOS_SIM_ARCHS=("i386" "x86_64" "arm64")
 TVOS_ARCHS=("arm64")
 TVOS_SIM_ARCHS=("x86_64" "arm64")
-MAC_CATALYST_ARCHS=("x86_64")
+MAC_CATALYST_ARCHS=("x86_64" "arm64")
 
 # Applied to all platforms
 CXX_FLAGS=""
@@ -1086,7 +1086,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         # Mac Catalyst
         for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-            mkdir -p "$MAC_CATALYST_BUILD_DIR/$ARCH/obj"
+            mkdir -p "$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH/obj"
         done
     fi
 
@@ -1173,11 +1173,11 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             if [[ "${#MAC_CATALYST_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
                     $MAC_CATALYST_DEV_CMD lipo "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                        -thin "$ARCH" -o "$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH/libboost_$NAME.a"
                 done
             else
                 cp "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
-                    "$MAC_CATALYST_BUILD_DIR/${MAC_CATALYST_ARCHS[0]}/libboost_$NAME.a"
+                    "$MAC_CATALYST_BUILD_DIR/mac-catalyst/${MAC_CATALYST_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
     done
@@ -1222,7 +1222,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
         if [[ -n $BUILD_MAC_CATALYST ]]; then
             for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-                unpackArchive "$MAC_CATALYST_BUILD_DIR/$ARCH/obj" $NAME
+                unpackArchive "$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH/obj" $NAME
             done
         fi
     done
@@ -1261,8 +1261,9 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-            rm "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost.a"
+            rm "$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH/libboost.a"
         done
+        rm "$MAC_CATALYST_BUILD_DIR/mac-catalyst/libboost.a"
     fi
 
     for NAME in $BOOTSTRAP_LIBS; do
@@ -1312,7 +1313,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         if [[ -n $BUILD_MAC_CATALYST ]]; then
             for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
                 echo "...mac-catalyst-$ARCH"
-                (cd_or_abort "$MAC_CATALYST_BUILD_DIR/$ARCH";  $MAC_CATALYST_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH";  $MAC_CATALYST_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
             done
         fi
     done
@@ -1418,7 +1419,7 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("mac-catalyst/$ARCH/libboost_$NAME.a")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
@@ -1521,7 +1522,7 @@ buildXCFramework()
             # lipo the files together
             mkdir -p "$MACOS_COMBINED_OUTPUT_DIR/build"
             COMBINED_MACOS_BUILD="$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a"
-            lipo -create -output "$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a" "${MACOS_BOOST_FILES[@]}"
+            $MACOS_DEV_CMD lipo -create -output "$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a" "${MACOS_BOOST_FILES[@]}"
             LIB_ARGS+=('-library' "$COMBINED_MACOS_BUILD")
             SLICES_COUNT=$((SLICES_COUNT + 1))
             # make sure headers are set up properly!
@@ -1540,6 +1541,13 @@ buildXCFramework()
         fi
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
+        echo "Re-lipo MacOS Catalyst libs"
+        ARCH_FILES=()
+        for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
+            ARCH_FILES+=("$MAC_CATALYST_BUILD_DIR/mac-catalyst/$ARCH/libboost.a")
+        done
+        $MAC_CATALYST_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$MAC_CATALYST_BUILD_DIR/mac-catalyst/libboost.a" || abort "Mac Catalyst Lipo failed"
+
         for LIBPATH in "$MAC_CATALYST_OUTPUT_DIR"/build/*/libboost.a; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
