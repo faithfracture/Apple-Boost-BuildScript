@@ -1,6 +1,7 @@
 ## Project-specific
 src/
 build/
+dist/
 *.tar.bz2
 
 # Created by https://www.toptal.com/developers/gitignore/api/xcode,macos
