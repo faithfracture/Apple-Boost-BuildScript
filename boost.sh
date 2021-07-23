@@ -26,7 +26,7 @@
 #    MAC_CATALYST_SDK_VERSION: macOS SDK version when building a Mac Catalyst app (e.g. 10.15)
 #    MIN_MAC_CATALYST_VERSION: Minimum iOS Target Version when building a Mac Catalyst app (e.g. 13.0)
 #
-# If a boost tarball (a file named “boost_$BOOST_VERSION2.tar.bz2”) does not
+# If a boost tarball (a file named “boost_$BOOST_VERSION_SNAKE_CASE.tar.bz2”) does not
 # exist in the current directory, this script will attempt to download the
 # version specified. You may also manually place a matching
 # tarball in the current directory and the script will use that.
@@ -652,9 +652,9 @@ version() { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; 
 downloadBoost()
 {
     if [ "$(version "$BOOST_VERSION")" -ge "$(version "1.63.0")" ]; then
-        DOWNLOAD_SRC=https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION2}.tar.bz2
+        DOWNLOAD_SRC=https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_SNAKE_CASE}.tar.bz2
     else
-        DOWNLOAD_SRC=http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION2}.tar.bz2/download
+        DOWNLOAD_SRC=http://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION_SNAKE_CASE}.tar.bz2/download
     fi
     if [ ! -s "$BOOST_TARBALL" ]; then
         echo "Downloading boost ${BOOST_VERSION} from ${DOWNLOAD_SRC}"
@@ -1140,7 +1140,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
                     "$MACOS_SILICON_BUILD_DIR/${MACOS_SILICON_ARCHS[0]}/libboost_$NAME.a"
             fi
         fi
-        
+
         if [[ -n $BUILD_MAC_CATALYST ]]; then
             if [[ "${#MAC_CATALYST_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
@@ -1523,9 +1523,9 @@ EXTRA_TVOS_SIM_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mtvos-simulator-version-min
 EXTRA_MACOS_FLAGS="$EXTRA_FLAGS -mmacosx-version-min=$MIN_MACOS_VERSION"
 EXTRA_MACOS_SILICON_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mmacosx-version-min=$MIN_MACOS_SILICON_VERSION"
 
-BOOST_VERSION2="${BOOST_VERSION//./_}"
-BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION2.tar.bz2"
-BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION2}"
+BOOST_VERSION_SNAKE_CASE="${BOOST_VERSION//./_}"
+BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION_SNAKE_CASE.tar.bz2"
+BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION_SNAKE_CASE}"
 OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
 IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
 TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
