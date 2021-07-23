@@ -33,7 +33,7 @@
 #
 #===============================================================================
 
-BOOST_VERSION=1.73.0
+BOOST_VERSION=1.76.0
 
 BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
 ALL_BOOST_LIBS_1_68="atomic chrono container context coroutine coroutine2
