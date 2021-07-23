@@ -696,7 +696,7 @@ patchBoost()
 
 #===============================================================================
 
-inventMissingHeaders()
+copyMissingHeaders()
 {
     # These files are missing in the ARM iPhoneOS SDK, but they are in the simulator.
     # They are supported on the device, so we copy them from x86 SDK to a staging area
@@ -710,7 +710,7 @@ inventMissingHeaders()
 
 #===============================================================================
 
-updateBoost()
+updateBoostUserConfigJam()
 {
     echo "Updating boost into $BOOST_SRC..."
 
@@ -1502,7 +1502,7 @@ if [[ -z $BUILD_IOS && -z $BUILD_TVOS && -z $BUILD_MACOS && -z $BUILD_MAC_CATALY
     BUILD_MAC_CATALYST=1
 fi
 
-# Must set these after parseArgs to fill in overriden values
+# Must set these after parseArgs to fill in overridden values
 EXTRA_FLAGS="-fembed-bitcode -Wno-unused-local-typedef -Wno-nullability-completeness"
 
 # The EXTRA_ARM_FLAGS definition works around a thread race issue in
@@ -1635,9 +1635,10 @@ fi
 
 downloadBoost
 unpackBoost
-inventMissingHeaders
+
+copyMissingHeaders
 patchBoost
-updateBoost
+updateBoostUserConfigJam
 
 if [[ -n $BUILD_IOS ]]; then
     bootstrapBoost "iOS"
@@ -1652,7 +1653,6 @@ if [[ -n $BUILD_MACOS ]]; then
     buildBoost_macOS
 fi
 if [[ -n $BUILD_MACOS_SILICON ]]; then
-    updateBoost "macOSSilicon"
     bootstrapBoost "macOSSilicon"
     buildBoost_macOS_silicon
 fi
