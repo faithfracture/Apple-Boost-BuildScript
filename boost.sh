@@ -35,16 +35,19 @@
 
 BOOST_VERSION=1.76.0
 
-BOOST_LIBS="atomic chrono date_time exception filesystem program_options random system thread test"
-ALL_BOOST_LIBS_1_68="atomic chrono container context coroutine coroutine2
-date_time exception fiber filesystem graph graph_parallel iostreams locale log
-math metaparse mpi program_options python random regex serialization signals
-system test thread timer type_erasure wave"
-ALL_BOOST_LIBS_1_69="atomic chrono container context coroutine coroutine2
-date_time exception fiber filesystem graph graph_parallel iostreams locale log
-math metaparse mpi program_options python random regex serialization signals2
-system test thread timer type_erasure wave"
-BOOTSTRAP_LIBS=""
+BOOST_LIBS=("atomic" "chrono" "date_time" "exception" "filesystem"
+"program_options" "random" "system" "thread" "test")
+ALL_BOOST_LIBS_1_68=("atomic" "chrono" "container" "context" "coroutine"
+"coroutine2" "date_time" "exception" "fiber" "filesystem" "graph"
+"graph_parallel" "iostreams" "locale" "log" "math" "metaparse" "mpi"
+"program_options" "python" "random" "regex" "serialization" "signals" "system"
+"test" "thread" "timer" "type_erasure" "wave")
+ALL_BOOST_LIBS_1_69=("atomic" "chrono" "container" "context" "coroutine"
+"coroutine2" "date_time" "exception" "fiber" "filesystem" "graph"
+"graph_parallel" "iostreams" "locale" "log" "math" "metaparse" "mpi"
+"program_options" "python" "random" "regex" "serialization" "signals2" "system"
+"test" "thread" "timer" "type_erasure" "wave")
+BOOTSTRAP_LIBS=()
 
 MIN_IOS_VERSION=11.0
 MIN_TVOS_VERSION=11.0
@@ -153,7 +156,7 @@ OPTIONS:
         Specify which libraries to build. Space-separate list. Pass 'all' to
         build all optional libraries. Pass 'none' to skip building optional
         libraries.
-        Defaults to: $BOOST_LIBS
+        Defaults to: ${BOOST_LIBS[@]}
 
         Boost libraries requiring separate building are:
             - atomic
@@ -549,16 +552,17 @@ parseArgs()
 
     if [[ -n $CUSTOM_LIBS ]]; then
         if [[ "$CUSTOM_LIBS" == "none" ]]; then
-            CUSTOM_LIBS=""
+            BOOST_LIBS=()
         elif [[ "$CUSTOM_LIBS" == "all" ]]; then
             read -ra BOOST_PARTS <<< "${BOOST_VERSION//./ }"
             if [[ ${BOOST_PARTS[1]} -lt 69 ]]; then
-                CUSTOM_LIBS=$ALL_BOOST_LIBS_1_68
+                BOOST_LIBS=("${ALL_BOOST_LIBS_1_68[@]}")
             else
-                CUSTOM_LIBS=$ALL_BOOST_LIBS_1_69
+                BOOST_LIBS=("${ALL_BOOST_LIBS_1_69[@]}")
             fi
+        else
+          read -ra BOOST_LIBS <<< "$CUSTOM_LIBS"
         fi
-        BOOST_LIBS=$CUSTOM_LIBS
     fi
 
     # Force 32/64-bit architecture when building universal macOS.
@@ -717,7 +721,7 @@ updateBoostUserConfigJam()
     echo "Updating boost into $BOOST_SRC..."
 
     USING_MPI=
-    if [[ $BOOST_LIBS == *"mpi"* ]]; then
+    if [[ "${BOOST_LIBS[*]}" =~ "mpi" ]]; then
         USING_MPI="using mpi ;" # trailing space needed
     fi
 
@@ -796,32 +800,29 @@ EOF
 bootstrapBoost()
 {
     cd_or_abort "$BOOST_SRC"
-    if [[ -z $BOOST_LIBS ]]; then
-        ./bootstrap.sh --without-libraries="${ALL_BOOST_LIBS// /,}"
+    if [[ ${#BOOST_LIBS[@]} -eq 0 ]]; then
+        ALL_BOOST_LIBS_COMMA=$(IFS=, ; echo "${ALL_BOOST_LIBS[*]}")
+        ./bootstrap.sh --without-libraries="$ALL_BOOST_LIBS_COMMA"
     else
-        BOOTSTRAP_LIBS=$BOOST_LIBS
+        BOOTSTRAP_LIBS=("${BOOST_LIBS[@]}")
         # Strip out unsupported / unavailable libraries
         if [[ "$1" == "iOS" ]]; then
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//context/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//coroutine/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//coroutine2/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//math/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//mpi/}"
+            UNSUPPORTED_LIBS=("context" "coroutine" "coroutine2" "math" "mpi")
+            for LIB in "${UNSUPPORTED_LIBS[@]}"; do
+               BOOTSTRAP_LIBS=("${BOOTSTRAP_LIBS[@]/$LIB}")
+            done
         fi
 
         if [[ "$1" == "tvOS" ]]; then
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//container/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//context/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//coroutine/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//coroutine2/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//math/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//metaparse/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//mpi/}"
-            BOOTSTRAP_LIBS="${BOOTSTRAP_LIBS//test/}"
+            UNSUPPORTED_LIBS=("container" "context" "coroutine" "coroutine2"
+            "math" "metaparse" "mpi" "test")
+            for LIB in "${UNSUPPORTED_LIBS[@]}"; do
+               BOOTSTRAP_LIBS=("${BOOTSTRAP_LIBS[@]/$LIB}")
+            done
         fi
 
-        echo "Bootstrap libs ${BOOTSTRAP_LIBS}"
-        BOOST_LIBS_COMMA="${BOOTSTRAP_LIBS// /,}"
+        echo "Bootstrap libs" "${BOOTSTRAP_LIBS[@]}"
+        BOOST_LIBS_COMMA=$(IFS=, ; echo "${BOOTSTRAP_LIBS[*]}")
         echo "Bootstrapping for $1 (with libs $BOOST_LIBS_COMMA)"
         ./bootstrap.sh --with-libraries="$BOOST_LIBS_COMMA"
     fi
@@ -1086,7 +1087,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo Splitting all existing fat binaries...
 
-    for NAME in $BOOTSTRAP_LIBS; do
+    for NAME in "${BOOTSTRAP_LIBS[@]}"; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -1176,7 +1177,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
 
     echo "Decomposing each architecture's .a files"
 
-    for NAME in $BOOTSTRAP_LIBS; do
+    for NAME in "${BOOTSTRAP_LIBS[@]}"; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -1256,7 +1257,7 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         done
     fi
 
-    for NAME in $BOOTSTRAP_LIBS; do
+    for NAME in "${BOOTSTRAP_LIBS[@]}"; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
@@ -1316,7 +1317,7 @@ buildUniversal()
         mkdir -p "$IOS_BUILD_DIR/universal"
 
         cd_or_abort "$IOS_BUILD_DIR"
-        for NAME in $BOOTSTRAP_LIBS; do
+        for NAME in "${BOOTSTRAP_LIBS[@]}"; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
@@ -1338,7 +1339,7 @@ buildUniversal()
         mkdir -p "$TVOS_BUILD_DIR/universal"
 
         cd_or_abort "$TVOS_BUILD_DIR"
-        for NAME in $BOOTSTRAP_LIBS; do
+        for NAME in "${BOOTSTRAP_LIBS[@]}"; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
@@ -1360,7 +1361,7 @@ buildUniversal()
         mkdir -p "$MACOS_BUILD_DIR/universal"
 
         cd_or_abort "$MACOS_BUILD_DIR"
-        for NAME in $BOOTSTRAP_LIBS; do
+        for NAME in "${BOOTSTRAP_LIBS[@]}"; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
@@ -1380,7 +1381,7 @@ buildUniversal()
         mkdir -p "$MACOS_SILICON_BUILD_DIR/universal"
 
         cd_or_abort "$MACOS_SILICON_BUILD_DIR"
-        for NAME in $BOOTSTRAP_LIBS; do
+        for NAME in "${BOOTSTRAP_LIBS[@]}"; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
@@ -1400,7 +1401,7 @@ buildUniversal()
         mkdir -p "$MAC_CATALYST_BUILD_DIR/universal"
 
         cd_or_abort "$MAC_CATALYST_BUILD_DIR"
-        for NAME in $BOOTSTRAP_LIBS; do
+        for NAME in "${BOOTSTRAP_LIBS[@]}"; do
             if [ "$NAME" == "test" ]; then
                 NAME="unit_test_framework"
             fi
@@ -1452,7 +1453,7 @@ buildXCFramework()
             ARCH_FILES+=("$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.a")
         done
         $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphonesimulator/libboost.a" || abort "iOS Simulator Lipo failed"
-      
+
         for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.a; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
@@ -1477,7 +1478,7 @@ buildXCFramework()
             ARCH_FILES+=("$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.a")
         done
         $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvsimulator/libboost.a" || abort "tvOS Simulator Lipo failed"
-      
+
         for LIBPATH in "$TVOS_OUTPUT_DIR"/build/*/libboost.a; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
