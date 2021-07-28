@@ -1683,7 +1683,7 @@ printVar "MAC_CATALYST_SDK_VERSION"
 printVar "MAC_CATALYST_SDK_PATH"
 printVar "MIN_MAC_CATALYST_VERSION"
 echo
-printVar "BOOST_LIBS"
+printVar "BOOST_LIBS" "${BOOST_LIBS[*]}"
 printVar "BOOST_SRC"
 printVar "XCODE_ROOT"
 printVar "IOS_BUILD_DIR"
