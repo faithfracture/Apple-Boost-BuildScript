@@ -72,11 +72,13 @@ OTHER_FLAGS="-DNDEBUG"
 
 XCODE_VERSION=$(xcrun xcodebuild -version | head -n1 | tr -Cd '[:digit:].')
 XCODE_ROOT=$(xcode-select -print-path)
-COMPILER="$XCODE_ROOT/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++"
+COMPILER=$(xcrun -f clang++)
+COMPILER_VERSION=$(xcrun clang++ --version | head -n1 | grep -oE 'version \d+\.\d+\.\d+')
+COMPILER_VERSION="${COMPILER_VERSION//version /}"
 
 THREADS="-j$(sysctl -n hw.ncpu)"
 
-CURRENT_DIR=$(pwd)
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 SRCDIR="$CURRENT_DIR/src"
 
 IOS_DEV_CMD="xcrun --sdk iphoneos"
@@ -274,6 +276,9 @@ OPTIONS:
 
     --no-framework
         Do not create the xcframework.
+
+    --no-thinning
+        Do not reduce the size of the final binaries using BCP.
 
     --universal
         Create universal FAT binary.
@@ -533,6 +538,10 @@ parseArgs()
                 NO_FRAMEWORK=1
                 ;;
 
+            --no-thinning)
+                NO_THINNING=1
+                ;;
+
             -j | --threads)
                 if [ -n "$2" ]; then
                     THREADS="-j$2"
@@ -624,19 +633,25 @@ cleanup()
     if [[ -n $BUILD_IOS ]]; then
         rm -rf "$BOOST_SRC/iphone-build"
         rm -rf "$BOOST_SRC/iphonesim-build"
+        rm -rf "$BOOST_SRC_THINNED/iphone-build"
+        rm -rf "$BOOST_SRC_THINNED/iphonesim-build"
         rm -rf "$IOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_TVOS ]]; then
         rm -rf "$BOOST_SRC/appletv-build"
         rm -rf "$BOOST_SRC/appletvsim-build"
+        rm -rf "$BOOST_SRC_THINNED/appletv-build"
+        rm -rf "$BOOST_SRC_THINNED/appletvsim-build"
         rm -rf "$TVOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS ]]; then
         rm -rf "$BOOST_SRC/macos-build"
+        rm -rf "$BOOST_SRC_THINNED/macos-build"
         rm -rf "$MACOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS_SILICON ]]; then
         rm -rf "$BOOST_SRC/macos-silicon-build"
+        rm -rf "$BOOST_SRC_THINNED/macos-silicon-build"
         rm -rf "$MACOS_SILICON_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS ]] || [[ -n $BUILD_MACOS_SILICON ]] ; then
@@ -644,6 +659,7 @@ cleanup()
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         rm -rf "$BOOST_SRC/mac-catalyst-build"
+        rm -rf "$BOOST_SRC_THINNED/mac-catalyst-build"
         rm -rf "$MAC_CATALYST_OUTPUT_DIR"
     fi
 
@@ -731,7 +747,7 @@ using darwin : $COMPILER_VERSION~iphone
 : <architecture>arm
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $IOS_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${IOS_ARCH_FLAGS[*]} $EXTRA_IOS_FLAGS -isysroot $IOS_SDK_PATH"
   <threading>multi
 
@@ -741,7 +757,7 @@ using darwin : $COMPILER_VERSION~iphonesim
 : <architecture>x86
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $IOSSIM_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${IOS_SIM_ARCH_FLAGS[*]} $EXTRA_IOS_SIM_FLAGS -isysroot $IOSSIM_SDK_PATH"
   <threading>multi
 ;
@@ -750,7 +766,7 @@ using darwin : $COMPILER_VERSION~appletv
 : <architecture>arm
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $TVOS_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${TVOS_ARCH_FLAGS[*]} $EXTRA_TVOS_FLAGS -isysroot $TVOS_SDK_PATH"
   <threading>multi
 ;
@@ -759,7 +775,7 @@ using darwin : $COMPILER_VERSION~appletvsim
 : <architecture>x86
   <target-os>iphone
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $TVOSSIM_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${TVOS_SIM_ARCH_FLAGS[*]} $EXTRA_TVOS_SIM_FLAGS -isysroot $TVOSSIM_SDK_PATH"
   <threading>multi
 ;
@@ -768,7 +784,7 @@ using darwin : $COMPILER_VERSION~macos
 : <architecture>x86
   <target-os>darwin
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $MACOS_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${MACOS_ARCH_FLAGS[*]} $EXTRA_MACOS_FLAGS -isysroot $MACOS_SDK_PATH"
   <threading>multi
 ;
@@ -777,7 +793,7 @@ using darwin : $COMPILER_VERSION~macossilicon
 : <architecture>arm
   <target-os>darwin
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $MACOS_SILICON_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${MACOS_SILICON_ARCH_FLAGS[*]} $EXTRA_MACOS_SILICON_FLAGS -isysroot $MACOS_SILICON_SDK_PATH" -target arm64-apple-macos$MIN_MACOS_SILICON_VERSION
 ;
 using darwin : $COMPILER_VERSION~maccatalyst
@@ -785,7 +801,7 @@ using darwin : $COMPILER_VERSION~maccatalyst
 : <architecture>x86
   <target-os>darwin
   <cxxflags>"$CXX_FLAGS"
-  <linkflags>"$LD_FLAGS"
+  <linkflags>"$LD_FLAGS -isysroot $MAC_CATALYST_SDK_PATH"
   <compileflags>"$OTHER_FLAGS ${MAC_CATALYST_ARCH_FLAGS[*]} $EXTRA_MAC_CATALYST_FLAGS -isysroot $MAC_CATALYST_SDK_PATH -target x86_64-apple-ios$MIN_MAC_CATALYST_VERSION-macabi"
   <threading>multi
 ;
@@ -797,9 +813,45 @@ EOF
 
 #===============================================================================
 
+thinBoost()
+{
+    echo "Thinning boost in $BOOST_SRC_THINNED (input is $BOOST_SRC)"
+
+    # Build bcp
+    BCP="$BOOST_SRC/dist/bin/bcp"
+    (
+        cd_or_abort "$BOOST_SRC"
+
+        $B2 \
+            toolset="clang" \
+            variant=release \
+            tools/bcp
+    )
+
+    rm -r "$BOOST_SRC_THINNED"
+    mkdir -p "$BOOST_SRC_THINNED"
+    mkdir -p "${OUTPUT_DIR}"
+
+    $BCP --boost="$BOOST_SRC" \
+        --unix-lines \
+        build \
+        "${BOOST_LIBS[@]}" \
+        "$BOOST_SRC_THINNED" >> "${OUTPUT_DIR}/boost-thinning.log" 2>&1
+    # shellcheck disable=SC2181
+    if [ $? != 0 ]; then echo "Error running bcp. Check log."; exit 1; fi
+
+    BOOST_SRC_CURRENT="$BOOST_SRC_THINNED"
+    echo "Active source dir is now $BOOST_SRC_CURRENT"
+
+    doneSection
+}
+
+#===============================================================================
+
 bootstrapBoost()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
+
     if [[ ${#BOOST_LIBS[@]} -eq 0 ]]; then
         ALL_BOOST_LIBS_COMMA=$(IFS=, ; echo "${ALL_BOOST_LIBS[*]}")
         ./bootstrap.sh --without-libraries="$ALL_BOOST_LIBS_COMMA"
@@ -834,12 +886,12 @@ bootstrapBoost()
 
 buildBoost_iOS()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
     mkdir -p "$IOS_OUTPUT_DIR"
 
     echo Building Boost for iPhone
     # Install this one so we can copy the headers for the frameworks...
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=iphone-build \
         --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" \
@@ -850,7 +902,7 @@ buildBoost_iOS()
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error staging iPhone. Check log."; exit 1; fi
 
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=iphone-build \
         --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" \
@@ -863,7 +915,7 @@ buildBoost_iOS()
     doneSection
 
     echo Building Boost for iPhoneSimulator
-    ./b2 "$THREADS"  \
+    $B2 "$THREADS"  \
         --build-dir=iphonesim-build \
         --stagedir=iphonesim-build/stage \
         toolset="darwin-$COMPILER_VERSION~iphonesim" \
@@ -877,11 +929,11 @@ buildBoost_iOS()
 
 buildBoost_tvOS()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
     mkdir -p "$TVOS_OUTPUT_DIR"
 
     echo Building Boost for AppleTV
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=appletv-build \
         --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
@@ -892,7 +944,7 @@ buildBoost_tvOS()
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error staging AppleTV. Check log."; exit 1; fi
 
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=appletv-build \
         --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
@@ -905,7 +957,7 @@ buildBoost_tvOS()
     doneSection
 
     echo "Building Boost for AppleTVSimulator"
-    ./b2 "$THREADS"  \
+    $B2 "$THREADS"  \
         --build-dir=appletvsim-build \
         --stagedir=appletvsim-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
@@ -920,11 +972,11 @@ buildBoost_tvOS()
 
 buildBoost_macOS()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
     mkdir -p "$MACOS_OUTPUT_DIR"
 
     echo building Boost for macOS
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=macos-build \
         --stagedir=macos-build/stage \
         --prefix="$MACOS_OUTPUT_DIR/prefix" \
@@ -935,7 +987,7 @@ buildBoost_macOS()
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error staging macOS. Check log."; exit 1; fi
 
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=macos-build \
         --stagedir=macos-build/stage \
         --prefix="$MACOS_OUTPUT_DIR/prefix" \
@@ -951,11 +1003,11 @@ buildBoost_macOS()
 
 buildBoost_macOS_silicon()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
     mkdir -p "$MACOS_SILICON_OUTPUT_DIR"
 
     echo building Boost for macOS Silicon
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=macos-silicon-build \
         --stagedir=macos-silicon-build/stage \
         --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
@@ -966,7 +1018,7 @@ buildBoost_macOS_silicon()
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error staging macOS silicon. Check log."; exit 1; fi
 
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=macos-silicon-build \
         --stagedir=macos-silicon-build/stage \
         --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
@@ -980,12 +1032,12 @@ buildBoost_macOS_silicon()
 
 buildBoost_mac_catalyst()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
     mkdir -p "$MAC_CATALYST_OUTPUT_DIR"
 
     echo Building Boost for Mac Catalyst
     # Install this one so we can copy the headers for the frameworks...
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=mac-catalyst-build \
         --stagedir=mac-catalyst-build/stage \
         --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
@@ -996,7 +1048,7 @@ buildBoost_mac_catalyst()
     # shellcheck disable=SC2181
     if [ $? != 0 ]; then echo "Error staging Mac Catalyst. Check log."; exit 1; fi
 
-    ./b2 "$THREADS" \
+    $B2 "$THREADS" \
         --build-dir=mac-catalyst-build \
         --stagedir=mac-catalyst-build/stage \
         --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
@@ -1037,7 +1089,7 @@ unpackArchive()
 
 scrunchAllLibsTogetherInOneLibPerPlatform()
 {
-    cd_or_abort "$BOOST_SRC"
+    cd_or_abort "$BOOST_SRC_CURRENT"
 
     if [[ -n $BUILD_IOS ]]; then
         # iOS Device
@@ -1596,6 +1648,10 @@ EXTRA_MACOS_SILICON_FLAGS="$EXTRA_FLAGS $EXTRA_ARM_FLAGS -mmacosx-version-min=$M
 BOOST_VERSION_SNAKE_CASE="${BOOST_VERSION//./_}"
 BOOST_TARBALL="$CURRENT_DIR/boost_$BOOST_VERSION_SNAKE_CASE.tar.bz2"
 BOOST_SRC="$SRCDIR/boost_${BOOST_VERSION_SNAKE_CASE}"
+BOOST_SRC_THINNED="$SRCDIR/boost_${BOOST_VERSION_SNAKE_CASE}_thinned"
+# After thinning the sources this will be changed to $BOOST_SRC_THINNED
+BOOST_SRC_CURRENT="$BOOST_SRC"
+B2="$BOOST_SRC_CURRENT/b2"
 OUTPUT_DIR="$CURRENT_DIR/build/boost/$BOOST_VERSION"
 IOS_OUTPUT_DIR="$OUTPUT_DIR/ios/$BUILD_VARIANT"
 TVOS_OUTPUT_DIR="$OUTPUT_DIR/tvos/$BUILD_VARIANT"
@@ -1720,6 +1776,11 @@ unpackBoost
 copyMissingHeaders
 patchBoost
 updateBoostUserConfigJam
+
+if [[ -z $NO_THINNING ]]; then
+    bootstrapBoost "bcp" # Necessary to have the b2 binary for building bcp
+    thinBoost
+fi
 
 if [[ -n $BUILD_IOS ]]; then
     bootstrapBoost "iOS"
