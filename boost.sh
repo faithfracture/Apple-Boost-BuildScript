@@ -622,29 +622,29 @@ cleanup()
     echo Cleaning everything
 
     if [[ -n $BUILD_IOS ]]; then
-        rm -r "$BOOST_SRC/iphone-build"
-        rm -r "$BOOST_SRC/iphonesim-build"
-        rm -r "$IOS_OUTPUT_DIR"
+        rm -rf "$BOOST_SRC/iphone-build"
+        rm -rf "$BOOST_SRC/iphonesim-build"
+        rm -rf "$IOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_TVOS ]]; then
-        rm -r "$BOOST_SRC/appletv-build"
-        rm -r "$BOOST_SRC/appletvsim-build"
-        rm -r "$TVOS_OUTPUT_DIR"
+        rm -rf "$BOOST_SRC/appletv-build"
+        rm -rf "$BOOST_SRC/appletvsim-build"
+        rm -rf "$TVOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS ]]; then
-        rm -r "$BOOST_SRC/macos-build"
-        rm -r "$MACOS_OUTPUT_DIR"
+        rm -rf "$BOOST_SRC/macos-build"
+        rm -rf "$MACOS_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS_SILICON ]]; then
-        rm -r "$BOOST_SRC/macos-silicon-build"
-        rm -r "$MACOS_SILICON_OUTPUT_DIR"
+        rm -rf "$BOOST_SRC/macos-silicon-build"
+        rm -rf "$MACOS_SILICON_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MACOS ]] || [[ -n $BUILD_MACOS_SILICON ]] ; then
-        rm -r "$MACOS_COMBINED_OUTPUT_DIR"
+        rm -rf "$MACOS_COMBINED_OUTPUT_DIR"
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
-        rm -r "$BOOST_SRC/mac-catalyst-build"
-        rm -r "$MAC_CATALYST_OUTPUT_DIR"
+        rm -rf "$BOOST_SRC/mac-catalyst-build"
+        rm -rf "$MAC_CATALYST_OUTPUT_DIR"
     fi
 
     doneSection
@@ -1697,10 +1697,10 @@ echo
 
 if [[ -n "$PURGE" ]]; then
     echo "Purging everything..."
-    rm -r boost_*.tar.bz2
-    rm -r build
-    rm -r src
-    rm -r dist
+    rm -rf boost_*.tar.bz2
+    rm -rf build
+    rm -rf src
+    rm -rf dist
     echo "Done"
     exit 0
 fi
