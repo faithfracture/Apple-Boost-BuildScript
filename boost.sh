@@ -66,9 +66,9 @@ TVOS_SIM_ARCHS=("x86_64" "arm64")
 MAC_CATALYST_ARCHS=("x86_64")
 
 # Applied to all platforms
-CXX_FLAGS=""
+CXX_FLAGS="-std=c++14 -stdlib=libc++"
 LD_FLAGS=""
-OTHER_FLAGS="-std=c++14 -stdlib=libc++ -DNDEBUG"
+OTHER_FLAGS="-DNDEBUG"
 
 XCODE_VERSION=$(xcrun xcodebuild -version | head -n1 | tr -Cd '[:digit:].')
 XCODE_ROOT=$(xcode-select -print-path)
