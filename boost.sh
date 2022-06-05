@@ -478,6 +478,7 @@ parseArgs()
             --macos-silicon-archs)
                 if [ -n "$2" ]; then
                     CUSTOM_MACOS_SILICON_ARCHS=$2
+                    shift;
                 else
                     missingParameter "$1"
                 fi
