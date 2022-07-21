@@ -614,6 +614,10 @@ parseArgs()
             IOS_SIM_ARCHS=("x86_64" "arm64")
         fi
     fi
+    # ARM simulator is supported only from Xcode 12
+    if [[ "$(version "$XCODE_VERSION")" -lt "$(version "12.0")" && "${IOS_SIM_ARCHS[${#IOS_SIM_ARCHS[@]}-1]}" == arm64 ]]; then
+        unset IOS_SIM_ARCHS[${#IOS_SIM_ARCHS[@]}-1]
+    fi
 }
 
 doneSection()
