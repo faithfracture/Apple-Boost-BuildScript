@@ -751,6 +751,10 @@ updateBoostUserConfigJam()
         USING_MPI="using mpi ;" # trailing space needed
     fi
 
+    if [[ "$BUILD_TYPE" == "shared" ]]; then
+      LD_FLAGS+=' -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks'
+    fi
+
     cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : $COMPILER_VERSION~iphone
 : $COMPILER
