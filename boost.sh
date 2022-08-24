@@ -1379,7 +1379,17 @@ buildUniversal()
                 ARCH_FILES+=("iphoneos/$ARCH/libboost_$NAME.a")
             done
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-                ARCH_FILES+=("iphonesimulator/$ARCH/libboost_$NAME.a")
+                passed=1
+                for IOS_ARCH in "${IOS_ARCHS[@]}"; do
+                    if [ $ARCH == $IOS_ARCH ]; then
+                        passed=0
+                        echo "Skipping already included architecture: $ARCH"
+                        break
+                    fi
+                done
+                if [ $passed -eq 1 ]; then
+                    ARCH_FILES+=("iphonesimulator/$ARCH/libboost_$NAME.a")
+                fi
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
