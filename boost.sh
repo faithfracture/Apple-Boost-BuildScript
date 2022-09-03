@@ -51,13 +51,13 @@ ALL_BOOST_LIBS_1_69=("atomic" "chrono" "container" "context" "coroutine"
 "test" "thread" "timer" "type_erasure" "wave")
 BOOTSTRAP_LIBS=()
 
-MIN_IOS_VERSION=11.0
-MIN_TVOS_VERSION=11.0
+MIN_IOS_VERSION=13.0
+MIN_TVOS_VERSION=13.0
 MIN_MACOS_VERSION=10.12
 MIN_MACOS_SILICON_VERSION=11
 MACOS_SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
 MACOS_SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
-MIN_MAC_CATALYST_VERSION=13.0
+MIN_MAC_CATALYST_VERSION=14.0
 
 MACOS_ARCHS=("i386" "x86_64")
 MACOS_SILICON_ARCHS=("arm64")
