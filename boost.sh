@@ -129,9 +129,11 @@ Build Boost for iOS, iOS Simulator, tvOS, tvOS Simulator, and macOS
 The -ios, -tvos, and -macOS options may be specified together. Default
 is to build all of them.
 
-Examples:
+EXAMPLES:
     ./boost.sh -ios -tvos --boost-version 1.68.0
     ./boost.sh -macos --no-framework
+    ./boost.sh --boost-libs 'system date_time thread'
+    ./boost.sh --ios-archs 'arm64 armv7'
     ./boost.sh --clean
 
 OPTIONS:
