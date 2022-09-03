@@ -90,6 +90,8 @@ MACOS_SILICON_DEV_CMD="xcrun --sdk macosx"
 MAC_CATALYST_DEV_CMD="xcrun --sdk macosx"
 
 BUILD_VARIANT=release
+BUILD_TYPE=static
+LIBRARY_EXTENSION=a
 
 #===============================================================================
 # Functions
@@ -151,6 +153,9 @@ OPTIONS:
 
     -mac-catalyst
         Build for the Mac Catalyst platform (UIKit on Mac).
+
+    --shared
+        Build shared libraries instead of static.
 
     --boost-version [num]
         Specify which version of Boost to build.
@@ -367,6 +372,11 @@ parseArgs()
 
             -mac-catalyst)
                 BUILD_MAC_CATALYST=1
+                ;;
+
+            --shared)
+                BUILD_TYPE=shared
+                LIBRARY_EXTENSION=dylib
                 ;;
 
             --boost-version)
@@ -743,6 +753,10 @@ updateBoostUserConfigJam()
         USING_MPI="using mpi ;" # trailing space needed
     fi
 
+    if [[ "$BUILD_TYPE" == "shared" ]]; then
+      LD_FLAGS+=' -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks'
+    fi
+
     cat > "$BOOST_SRC/tools/build/src/user-config.jam" <<EOF
 using darwin : $COMPILER_VERSION~iphone
 : $COMPILER
@@ -898,7 +912,7 @@ buildBoost_iOS()
         --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~iphone" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -909,7 +923,7 @@ buildBoost_iOS()
         --stagedir=iphone-build/stage \
         --prefix="$IOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~iphone" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         install >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -921,7 +935,7 @@ buildBoost_iOS()
         --build-dir=iphonesim-build \
         --stagedir=iphonesim-build/stage \
         toolset="darwin-$COMPILER_VERSION~iphonesim" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${IOS_OUTPUT_DIR}/ios-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -940,7 +954,7 @@ buildBoost_tvOS()
         --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~appletv" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -951,7 +965,7 @@ buildBoost_tvOS()
         --stagedir=appletv-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~appletv" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         install >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -964,7 +978,7 @@ buildBoost_tvOS()
         --stagedir=appletvsim-build/stage \
         --prefix="$TVOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~appletvsim" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${TVOS_OUTPUT_DIR}/tvos-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -983,7 +997,7 @@ buildBoost_macOS()
         --stagedir=macos-build/stage \
         --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~macos" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -994,7 +1008,7 @@ buildBoost_macOS()
         --stagedir=macos-build/stage \
         --prefix="$MACOS_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~macos" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         install >> "${MACOS_OUTPUT_DIR}/macos-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -1014,7 +1028,7 @@ buildBoost_macOS_silicon()
         --stagedir=macos-silicon-build/stage \
         --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~macossilicon" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${MACOS_SILICON_OUTPUT_DIR}/macos-silicon-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -1025,7 +1039,7 @@ buildBoost_macOS_silicon()
         --stagedir=macos-silicon-build/stage \
         --prefix="$MACOS_SILICON_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~macossilicon" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         install >> "${MACOS_SILICON_OUTPUT_DIR}/macos-silicon-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -1044,7 +1058,7 @@ buildBoost_mac_catalyst()
         --stagedir=mac-catalyst-build/stage \
         --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~maccatalyst" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         stage >> "${MAC_CATALYST_OUTPUT_DIR}/mac-catalyst-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -1055,7 +1069,7 @@ buildBoost_mac_catalyst()
         --stagedir=mac-catalyst-build/stage \
         --prefix="$MAC_CATALYST_OUTPUT_DIR/prefix" \
         toolset="darwin-$COMPILER_VERSION~maccatalyst" \
-        link=static \
+        link=$BUILD_TYPE \
         variant=${BUILD_VARIANT} \
         install >> "${MAC_CATALYST_OUTPUT_DIR}/mac-catalyst-build.log" 2>&1
     # shellcheck disable=SC2181
@@ -1081,7 +1095,7 @@ unpackArchive()
     fi
 
     (
-        cd_or_abort "$BUILDDIR/$NAME"; ar -x "../../libboost_$NAME.a";
+        cd_or_abort "$BUILDDIR/$NAME"; ar -x "../../libboost_$NAME.$LIBRARY_EXTENSION";
         for FILE in *.o; do
             NEW_FILE="${NAME}_${FILE}"
             mv "$FILE" "$NEW_FILE"
@@ -1146,97 +1160,97 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
             NAME="unit_test_framework"
         fi
 
-        ALL_LIBS="$ALL_LIBS libboost_$NAME.a"
+        ALL_LIBS="$ALL_LIBS libboost_$NAME.$LIBRARY_EXTENSION"
 
         if [[ -n $BUILD_IOS ]]; then
             if [[ "${#IOS_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${IOS_ARCHS[@]}"; do
-                    $IOS_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost_$NAME.a"
+                    $IOS_DEV_CMD lipo "iphone-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
                 done
             else
-                cp "iphone-build/stage/lib/libboost_$NAME.a" \
-                    "$IOS_BUILD_DIR/iphoneos/${IOS_ARCHS[0]}/libboost_$NAME.a"
+                cp "iphone-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                    "$IOS_BUILD_DIR/iphoneos/${IOS_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
             fi
 
             if [[ "${#IOS_SIM_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-                    $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost_$NAME.a"
+                    $IOS_SIM_DEV_CMD lipo "iphonesim-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                        -thin "$ARCH" -o "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
                 done
             else
-                cp "iphonesim-build/stage/lib/libboost_$NAME.a" \
-                    "$IOS_BUILD_DIR/iphonesimulator/${IOS_SIM_ARCHS[0]}/libboost_$NAME.a"
+                cp "iphonesim-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                    "$IOS_BUILD_DIR/iphonesimulator/${IOS_SIM_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
             fi
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
           if [[ "${#TVOS_ARCHS[@]}" -gt 1 ]]; then
               for ARCH in "${TVOS_ARCHS[@]}"; do
-                  $TVOS_DEV_CMD lipo "appletv-build/stage/lib/libboost_$NAME.a" \
-                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost_$NAME.a"
+                  $TVOS_DEV_CMD lipo "appletv-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
               done
           else
-              cp "appletv-build/stage/lib/libboost_$NAME.a" \
-                  "$TVOS_BUILD_DIR/appletvos/${TVOS_ARCHS[0]}/libboost_$NAME.a"
+              cp "appletv-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                  "$TVOS_BUILD_DIR/appletvos/${TVOS_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
           fi
 
           if [[ "${#TVOS_SIM_ARCHS[@]}" -gt 1 ]]; then
               for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
-                  $TVOS_SIM_DEV_CMD lipo "appletvsim-build/stage/lib/libboost_$NAME.a" \
-                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost_$NAME.a"
+                  $TVOS_SIM_DEV_CMD lipo "appletvsim-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                      -thin "$ARCH" -o "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
               done
           else
-              cp "appletvsim-build/stage/lib/libboost_$NAME.a" \
-                  "$TVOS_BUILD_DIR/appletvsimulator/${TVOS_SIM_ARCHS[0]}/libboost_$NAME.a"
+              cp "appletvsim-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                  "$TVOS_BUILD_DIR/appletvsimulator/${TVOS_SIM_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
           fi
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
             if [[ "${#MACOS_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${MACOS_ARCHS[@]}"; do
-                    $MACOS_DEV_CMD lipo "macos-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                    $MACOS_DEV_CMD lipo "macos-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                        -thin "$ARCH" -o "$MACOS_BUILD_DIR/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
                 done
             else
-                cp "macos-build/stage/lib/libboost_$NAME.a" \
-                    "$MACOS_BUILD_DIR/${MACOS_ARCHS[0]}/libboost_$NAME.a"
+                cp "macos-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                    "$MACOS_BUILD_DIR/${MACOS_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
             fi
         fi
 
         if [[ -n $BUILD_MACOS_SILICON ]]; then
             if [[ "${#MACOS_SILICON_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
-                    $MACOS_SILICON_DEV_CMD lipo "macos-silicon-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                    $MACOS_SILICON_DEV_CMD lipo "macos-silicon-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                        -thin "$ARCH" -o "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
                 done
             else
-                cp "macos-silicon-build/stage/lib/libboost_$NAME.a" \
-                    "$MACOS_SILICON_BUILD_DIR/${MACOS_SILICON_ARCHS[0]}/libboost_$NAME.a"
+                cp "macos-silicon-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                    "$MACOS_SILICON_BUILD_DIR/${MACOS_SILICON_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
             fi
         fi
 
         if [[ -n $BUILD_MAC_CATALYST ]]; then
             if [[ "${#MAC_CATALYST_ARCHS[@]}" -gt 1 ]]; then
                 for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-                    $MAC_CATALYST_DEV_CMD lipo "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
-                        -thin "$ARCH" -o "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost_$NAME.a"
+                    $MAC_CATALYST_DEV_CMD lipo "mac-catalyst-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                        -thin "$ARCH" -o "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION"
                 done
             else
-                cp "mac-catalyst-build/stage/lib/libboost_$NAME.a" \
-                    "$MAC_CATALYST_BUILD_DIR/${MAC_CATALYST_ARCHS[0]}/libboost_$NAME.a"
+                cp "mac-catalyst-build/stage/lib/libboost_$NAME.$LIBRARY_EXTENSION" \
+                    "$MAC_CATALYST_BUILD_DIR/${MAC_CATALYST_ARCHS[0]}/libboost_$NAME.$LIBRARY_EXTENSION"
             fi
         fi
     done
 
-    echo "Decomposing each architecture's .a files"
+    echo "Decomposing each architecture's .$LIBRARY_EXTENSION files"
 
     for NAME in "${BOOTSTRAP_LIBS[@]}"; do
         if [ "$NAME" == "test" ]; then
             NAME="unit_test_framework"
         fi
 
-        echo "Decomposing libboost_${NAME}.a"
+        echo "Decomposing libboost_${NAME}.$LIBRARY_EXTENSION"
         if [[ -n $BUILD_IOS ]]; then
             for ARCH in "${IOS_ARCHS[@]}"; do
                 unpackArchive "$IOS_BUILD_DIR/iphoneos/$ARCH/obj" $NAME
@@ -1274,40 +1288,40 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         fi
     done
 
-    echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.a )"
+    echo "Linking each architecture into an uberlib ($ALL_LIBS => libboost.$LIBRARY_EXTENSION )"
     if [[ -n $BUILD_IOS ]]; then
         for ARCH in "${IOS_ARCHS[@]}"; do
-            rm "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.a"
+            rm "$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
-        rm "$IOS_BUILD_DIR/iphoneos/libboost.a"
+        rm "$IOS_BUILD_DIR/iphoneos/libboost.$LIBRARY_EXTENSION"
         for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-            rm "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.a"
+            rm "$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
-        rm "$IOS_BUILD_DIR/iphonesimulator/libboost.a"
+        rm "$IOS_BUILD_DIR/iphonesimulator/libboost.$LIBRARY_EXTENSION"
     fi
     if [[ -n $BUILD_TVOS ]]; then
         for ARCH in "${TVOS_ARCHS[@]}"; do
-            rm "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.a"
+            rm "$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
-        rm "$TVOS_BUILD_DIR/appletvos/libboost.a"
+        rm "$TVOS_BUILD_DIR/appletvos/libboost.$LIBRARY_EXTENSION"
         for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
-            rm "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.a"
+            rm "$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
-        rm "$TVOS_BUILD_DIR/appletvsimulator/libboost.a"
+        rm "$TVOS_BUILD_DIR/appletvsimulator/libboost.$LIBRARY_EXTENSION"
     fi
     if [[ -n $BUILD_MACOS ]]; then
         for ARCH in "${MACOS_ARCHS[@]}"; do
-            rm "$MACOS_BUILD_DIR/$ARCH/libboost.a"
+            rm "$MACOS_BUILD_DIR/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
     fi
     if [[ -n $BUILD_MACOS_SILICON ]]; then
         for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
-            rm "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost.a"
+            rm "$MACOS_SILICON_BUILD_DIR/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
         for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-            rm "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost.a"
+            rm "$MAC_CATALYST_BUILD_DIR/$ARCH/libboost.$LIBRARY_EXTENSION"
         done
     fi
 
@@ -1321,44 +1335,44 @@ scrunchAllLibsTogetherInOneLibPerPlatform()
         if [[ -n $BUILD_IOS ]]; then
             for ARCH in "${IOS_ARCHS[@]}"; do
                 echo "...ios-$ARCH"
-                (cd_or_abort "$IOS_BUILD_DIR/iphoneos/$ARCH"; $IOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$IOS_BUILD_DIR/iphoneos/$ARCH"; $IOS_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
 
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
                 echo "...ios-sim-$ARCH"
-                (cd_or_abort "$IOS_BUILD_DIR/iphonesimulator/$ARCH"; $IOS_SIM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$IOS_BUILD_DIR/iphonesimulator/$ARCH"; $IOS_SIM_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
         fi
 
         if [[ -n $BUILD_TVOS ]]; then
             for ARCH in "${TVOS_ARCHS[@]}"; do
                 echo "...tvOS-$ARCH"
-                (cd_or_abort "$TVOS_BUILD_DIR/appletvos/$ARCH"; $TVOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$TVOS_BUILD_DIR/appletvos/$ARCH"; $TVOS_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
 
             for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
                 echo "...tvOS-sim-$ARCH"
-                (cd_or_abort "$TVOS_BUILD_DIR/appletvsimulator/$ARCH"; $TVOS_SIM_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$TVOS_BUILD_DIR/appletvsimulator/$ARCH"; $TVOS_SIM_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
         fi
 
         if [[ -n $BUILD_MACOS ]]; then
             for ARCH in "${MACOS_ARCHS[@]}"; do
                 echo "...macos-$ARCH"
-                (cd_or_abort "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$MACOS_BUILD_DIR/$ARCH";  $MACOS_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
         fi
 
         if [[ -n $BUILD_MACOS_SILICON ]]; then
             for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
                 echo "...macos-silicon-$ARCH"
-                (cd_or_abort "$MACOS_SILICON_BUILD_DIR/$ARCH";  $MACOS_SILICON_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$MACOS_SILICON_BUILD_DIR/$ARCH";  $MACOS_SILICON_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
         fi
         if [[ -n $BUILD_MAC_CATALYST ]]; then
             for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
                 echo "...mac-catalyst-$ARCH"
-                (cd_or_abort "$MAC_CATALYST_BUILD_DIR/$ARCH";  $MAC_CATALYST_DEV_CMD ar crus libboost.a "obj/$NAME/"*.o; )
+                (cd_or_abort "$MAC_CATALYST_BUILD_DIR/$ARCH";  $MAC_CATALYST_DEV_CMD ar crus libboost.$LIBRARY_EXTENSION "obj/$NAME/"*.o; )
             done
         fi
     done
@@ -1378,14 +1392,14 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${IOS_ARCHS[@]}"; do
-                ARCH_FILES+=("iphoneos/$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("iphoneos/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-                ARCH_FILES+=("iphonesimulator/$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("iphonesimulator/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.$LIBRARY_EXTENSION" || abort "Lipo $NAME failed"
             fi
         done
     fi
@@ -1400,14 +1414,14 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${TVOS_ARCHS[@]}"; do
-                ARCH_FILES+=("appletvos/$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("appletvos/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
-                ARCH_FILES+=("appletvsimulator/$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("appletvsimulator/$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.$LIBRARY_EXTENSION" || abort "Lipo $NAME failed"
             fi
         done
     fi
@@ -1422,11 +1436,11 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${MACOS_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $MACOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $MACOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.$LIBRARY_EXTENSION" || abort "Lipo $NAME failed"
             fi
         done
     fi
@@ -1442,11 +1456,11 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${MACOS_SILICON_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $MACOS_SILICON_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $MACOS_SILICON_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.$LIBRARY_EXTENSION" || abort "Lipo $NAME failed"
             fi
         done
     fi
@@ -1462,11 +1476,11 @@ buildUniversal()
 
             ARCH_FILES=()
             for ARCH in "${MAC_CATALYST_ARCHS[@]}"; do
-                ARCH_FILES+=("$ARCH/libboost_$NAME.a")
+                ARCH_FILES+=("$ARCH/libboost_$NAME.$LIBRARY_EXTENSION")
             done
             if [[ "${#ARCH_FILES[@]}" -gt 0 ]]; then
                 echo "... $NAME"
-                $MAC_CATALYST_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.a" || abort "Lipo $NAME failed"
+                $MAC_CATALYST_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "universal/libboost_$NAME.$LIBRARY_EXTENSION" || abort "Lipo $NAME failed"
             fi
         done
     fi
@@ -1497,18 +1511,18 @@ buildXCFramework()
         echo "Re-lipo iOS Device libs"
         ARCH_FILES=()
         for ARCH in "${IOS_ARCHS[@]}"; do
-            ARCH_FILES+=("$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.a")
+            ARCH_FILES+=("$IOS_BUILD_DIR/iphoneos/$ARCH/libboost.$LIBRARY_EXTENSION")
         done
-        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphoneos/libboost.a" || abort "iOS Device Lipo failed"
+        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphoneos/libboost.$LIBRARY_EXTENSION" || abort "iOS Device Lipo failed"
 
         echo "Re-lipo iOS Simulator libs"
         ARCH_FILES=()
         for ARCH in "${IOS_SIM_ARCHS[@]}"; do
-            ARCH_FILES+=("$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.a")
+            ARCH_FILES+=("$IOS_BUILD_DIR/iphonesimulator/$ARCH/libboost.$LIBRARY_EXTENSION")
         done
-        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphonesimulator/libboost.a" || abort "iOS Simulator Lipo failed"
+        $IOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$IOS_BUILD_DIR/iphonesimulator/libboost.$LIBRARY_EXTENSION" || abort "iOS Simulator Lipo failed"
 
-        for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.a; do
+        for LIBPATH in "$IOS_OUTPUT_DIR"/build/*/libboost.$LIBRARY_EXTENSION; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
         done
@@ -1522,18 +1536,18 @@ buildXCFramework()
         echo "Re-lipo tvOS Device libs"
         ARCH_FILES=()
         for ARCH in "${TVOS_ARCHS[@]}"; do
-            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.a")
+            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvos/$ARCH/libboost.$LIBRARY_EXTENSION")
         done
-        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvos/libboost.a" || abort "tvOS Device Lipo failed"
+        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvos/libboost.$LIBRARY_EXTENSION" || abort "tvOS Device Lipo failed"
 
         echo "Re-lipo tvOS Simulator libs"
         ARCH_FILES=()
         for ARCH in "${TVOS_SIM_ARCHS[@]}"; do
-            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.a")
+            ARCH_FILES+=("$TVOS_BUILD_DIR/appletvsimulator/$ARCH/libboost.$LIBRARY_EXTENSION")
         done
-        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvsimulator/libboost.a" || abort "tvOS Simulator Lipo failed"
+        $TVOS_DEV_CMD lipo -create "${ARCH_FILES[@]}" -o "$TVOS_BUILD_DIR/appletvsimulator/libboost.$LIBRARY_EXTENSION" || abort "tvOS Simulator Lipo failed"
 
-        for LIBPATH in "$TVOS_OUTPUT_DIR"/build/*/libboost.a; do
+        for LIBPATH in "$TVOS_OUTPUT_DIR"/build/*/libboost.$LIBRARY_EXTENSION; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
         done
@@ -1548,12 +1562,12 @@ buildXCFramework()
         # grab all the boost build files for macOS (e.g. i386, x86_64, arm64):
         MACOS_BOOST_FILES=()
         if [[ -n $BUILD_MACOS ]]; then
-            for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.a; do
+            for LIBPATH in "$MACOS_OUTPUT_DIR"/build/*/libboost.$LIBRARY_EXTENSION; do
                 MACOS_BOOST_FILES+=("$LIBPATH")
             done
         fi
         if [[ -n $BUILD_MACOS_SILICON ]]; then
-            for LIBPATH in "$MACOS_SILICON_OUTPUT_DIR"/build/*/libboost.a; do
+            for LIBPATH in "$MACOS_SILICON_OUTPUT_DIR"/build/*/libboost.$LIBRARY_EXTENSION; do
                 MACOS_BOOST_FILES+=("$LIBPATH")
             done
         fi
@@ -1561,8 +1575,8 @@ buildXCFramework()
         if [ ${#MACOS_BOOST_FILES[@]} -gt 0 ]; then
             # lipo the files together
             mkdir -p "$MACOS_COMBINED_OUTPUT_DIR/build"
-            COMBINED_MACOS_BUILD="$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a"
-            lipo -create -output "$MACOS_COMBINED_OUTPUT_DIR/build/libboost.a" "${MACOS_BOOST_FILES[@]}"
+            COMBINED_MACOS_BUILD="$MACOS_COMBINED_OUTPUT_DIR/build/libboost.$LIBRARY_EXTENSION"
+            lipo -create -output "$MACOS_COMBINED_OUTPUT_DIR/build/libboost.$LIBRARY_EXTENSION" "${MACOS_BOOST_FILES[@]}"
             LIB_ARGS+=('-library' "$COMBINED_MACOS_BUILD")
             SLICES_COUNT=$((SLICES_COUNT + 1))
             # make sure headers are set up properly!
@@ -1581,7 +1595,7 @@ buildXCFramework()
         fi
     fi
     if [[ -n $BUILD_MAC_CATALYST ]]; then
-        for LIBPATH in "$MAC_CATALYST_OUTPUT_DIR"/build/*/libboost.a; do
+        for LIBPATH in "$MAC_CATALYST_OUTPUT_DIR"/build/*/libboost.$LIBRARY_EXTENSION; do
             LIB_ARGS+=('-library' "$LIBPATH")
             SLICES_COUNT=$((SLICES_COUNT + 1))
         done
