@@ -1,6 +1,8 @@
 # Apple-Boost-BuildScript
 Script for building Boost for Apple platforms (iOS, iOS Simulator, tvOS, tvOS Simulator, macOS)
 
+### [👋 Collaborators wanted!](https://github.com/faithfracture/Apple-Boost-BuildScript/issues/67)
+
 This is a new location for my previous GIST:
     https://gist.github.com/faithfracture/c629ae4c7168216a9856
 
